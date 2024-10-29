@@ -6,6 +6,18 @@
 
 ---
 
+## Menu
+
+- [Vision](#vision)
+- [Business Requirements](#business-requirements)
+- [Requirements](#requirements)
+- [Mandatory Features](#mandatory-features)
+- [Optional Features](#optional-features)
+- [Optional Database Advanced Operations](#optional-database-advanced-operations)
+- [Getting Started](#getting-started)
+
+---
+
 ## Vision
 
 You are required to build a fullstack project management system similar to Trello, Jira, or Monday.

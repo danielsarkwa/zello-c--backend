@@ -1,0 +1,645 @@
+openapi: 3.0.0
+info:
+  title: Simplified Trello API
+  version: 1.0.0
+  description: |-
+    A simplified version of Trello's API for managing boards, lists, and cards. This API allows users to:
+    - Create and manage kanban-style boards
+    - Organize work using lists and cards
+    - Collaborate with team members
+    - Track work progress and deadlines
+    
+    ### Todo
+    1. Basic CRUD operations for existing resources (GET/PUT/DELETE endpoints)
+    2. Card movement functionality (between lists)
+    3. Activity tracking and audit logs
+    4. Common Trello features like comments and attachments
+servers:
+- url: http://localhost:3000/api/v1
+  description: Local development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      description: Represents a user in the system
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        name:
+          type: string
+          example: John Doe
+        createdAt:
+          type: string
+          format: date-time
+          example: '2024-01-01T12:00:00Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2024-01-01T12:00:00Z'
+
+    AuthToken:
+      description: Authentication tokens for API access
+      type: object
+      properties:
+        accessToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refreshToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        expiresIn:
+          type: integer
+          description: Token expiration time in seconds
+          example: 3600
+
+    Board:
+      description: Represents a project board that contains lists and cards
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174001
+        title:
+          type: string
+          example: Project Alpha
+        description:
+          type: string
+          example: Main project board for Alpha development
+        ownerId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        createdAt:
+          type: string
+          format: date-time
+          example: '2024-01-01T12:00:00Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2024-01-01T12:00:00Z'
+
+    BoardMember:
+      description: Represents a user's membership and role in a board
+      type: object
+      properties:
+        boardId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174001
+        userId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        role:
+          type: string
+          enum:
+          - admin
+          - member
+          - viewer
+          description: 'admin: full control, member: can edit, viewer: read-only'
+          example: member
+
+    List:
+      description: Represents a column in a board (e.g., 'To Do', 'In Progress', 'Done')
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174002
+        boardId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174001
+        title:
+          type: string
+          example: In Progress
+        position:
+          type: integer
+          description: Order of the list in the board (0-based)
+          example: 1
+        createdAt:
+          type: string
+          format: date-time
+          example: '2024-01-01T12:00:00Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2024-01-01T12:00:00Z'
+
+    Card:
+      description: Represents a task or item within a list
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174003
+        listId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174002
+        title:
+          type: string
+          example: Implement user authentication
+        description:
+          type: string
+          example: Set up JWT-based authentication with refresh tokens
+        position:
+          type: integer
+          description: Order of the card in the list (0-based)
+          example: 0
+        dueDate:
+          type: string
+          format: date-time
+          example: '2024-01-15T17:00:00Z'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2024-01-01T12:00:00Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2024-01-01T12:00:00Z'
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Invalid request parameters
+        code:
+          type: string
+          example: INVALID_PARAMETERS
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      description: Creates a new user account in the system
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              - password
+              - name
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                name:
+                  type: string
+            example:
+              email: jane.smith@example.com
+              password: securePassword123
+              name: Jane Smith
+      responses:
+        '201':
+          description: User successfully registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /boards:
+    post:
+      summary: Create a new board
+      description: Creates a new board for organizing lists and cards
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - title
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+            example:
+              title: Marketing Campaign Q1
+              description: Track all marketing initiatives for Q1 2024
+      responses:
+        '201':
+          description: Board successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Board'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  '/boards/{boardId}/lists':
+    post:
+      summary: Create a new list
+      description: Creates a new list within a board
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - title
+              properties:
+                title:
+                  type: string
+                position:
+                  type: integer
+            example:
+              title: In Progress
+              position: 1
+      responses:
+        '201':
+          description: List successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/List'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Board not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  '/lists/{listId}/cards':
+    post:
+      summary: Create a new card
+      description: Creates a new card within a list
+      parameters:
+        - name: list_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - title
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                position:
+                  type: integer
+                dueDate:
+                  type: string
+                  format: date-time
+            example:
+              title: Design social media graphics
+              description: Create banner images for Facebook and Twitter
+              position: 0
+              dueDate: '2024-01-20T17:00:00Z'
+      responses:
+        '201':
+          description: Card successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Card'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: List not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      summary: Authenticate user
+      description: Authenticates a user and returns access and refresh tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+            example:
+              email: jane.smith@example.com
+              password: securePassword123
+      responses:
+        '200':
+          description: Successfully authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthToken'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      description: Get a new access token using a valid refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+            example:
+              refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: Successfully refreshed token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthToken'
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /auth/logout:
+    post:
+      summary: Logout user
+      description: Invalidates the current refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+            example:
+              refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: Successfully logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Successfully logged out
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/password/reset-request:
+    post:
+      summary: Request password reset
+      description: Sends a password reset link to the user's email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+            example:
+              email: jane.smith@example.com
+      responses:
+        '200':
+          description: Password reset email sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Password reset instructions sent to email
+
+  /auth/password/reset:
+    post:
+      summary: Reset password
+      description: Reset password using the token received via email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - newPassword
+              properties:
+                token:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 8
+            example:
+              token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+              newPassword: newSecurePassword123
+      responses:
+        '200':
+          description: Password successfully reset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Password successfully reset
+        '400':
+          description: Invalid password format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid or expired reset token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'  
+
+  '/boards/{boardId}/members':
+    post:
+      summary: Add member to board
+      description: Adds a new member to the board with specified role
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - userId
+              - role
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                role:
+                  type: string
+                  enum:
+                  - admin
+                  - member
+                  - viewer
+            example:
+              userId: 123e4567-e89b-12d3-a456-426614174000
+              role: member
+      responses:
+        '201':
+          description: Member successfully added to board
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoardMember'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Board or user not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

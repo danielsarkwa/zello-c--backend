@@ -1,0 +1,16 @@
+﻿<Project>
+  <PropertyGroup>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableDefaultContainerBuilding>false</EnableDefaultContainerBuilding>
+    <NoWarn>$(NoWarn);SA0001;SA1633;SA1200;SA1101;SA1402;SA1309;SA1500;SA1505;SA1508;SA1509;SA1512;SA1513;SA1515;SA1516;SA1518;SA1519;SA1520;SA1600-SA1699</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)stylecop.json" />
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+</Project>

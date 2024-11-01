@@ -1,15 +1,14 @@
 ﻿name: Build, Check Style and Deploy
 
 on:
+  # For style checks only
   push:
     branches: [ main ]
+    paths-ignore:
+      - 'Documentation/**'
+  
+  # For manual documentation generation
   workflow_dispatch:
-    inputs:
-      deploy_docs:
-        description: 'Deploy documentation'
-        type: boolean
-        required: true
-        default: false
 
 permissions:
   contents: read
@@ -33,9 +32,9 @@ jobs:
       - name: Build with StyleCop analysis
         run: dotnet build --no-restore /p:TreatWarningsAsErrors=true /p:EnforceCodeStyleInBuild=true
 
-  build:
-    if: github.event_name == 'workflow_dispatch' && inputs.deploy_docs
-    needs: style-check
+  build-docs:
+    # Only run this job on manual trigger
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout your repository using git
@@ -45,9 +44,10 @@ jobs:
         with:
           path: ./Documentation
 
-  deploy:
-    if: github.event_name == 'workflow_dispatch' && inputs.deploy_docs
-    needs: build
+  deploy-docs:
+    # Only run this job on manual trigger and after build-docs
+    if: github.event_name == 'workflow_dispatch'
+    needs: build-docs
     runs-on: ubuntu-latest
     environment:
       name: github-pages

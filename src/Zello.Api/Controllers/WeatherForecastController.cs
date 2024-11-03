@@ -4,8 +4,7 @@ namespace Zello.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public sealed class WeatherForecastController : ControllerBase
-{
+public sealed class WeatherForecastController : ControllerBase {
     private static readonly string[] Summaries =
     {
         "Freezing",
@@ -22,12 +21,10 @@ public sealed class WeatherForecastController : ControllerBase
 
     [HttpGet]
     [ProducesResponseType(typeof(WeatherForecastResponse), StatusCodes.Status200OK)]
-    public IActionResult Get()
-    {
+    public IActionResult Get() {
         var forecast = Enumerable
             .Range(1, 5)
-            .Select(index => new WeatherForecastData
-            {
+            .Select(index => new WeatherForecastData {
                 Date = DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
                 TemperatureC = Random.Shared.Next(-20, 55),
                 Summary = Summaries[Random.Shared.Next(Summaries.Length)],

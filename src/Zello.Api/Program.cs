@@ -4,10 +4,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c => {
-    c.SwaggerDoc("v1", new() {
-        Title = "Zello API",
-        Version = "v1",
-    });
+    c.SwaggerDoc("v1", new() { Title = "Zello API", Version = "v1" });
 });
 
 builder.Services.AddAuthentication();

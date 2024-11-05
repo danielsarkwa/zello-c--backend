@@ -26,6 +26,218 @@ components:
       bearerFormat: JWT
 
   schemas:
+    
+    Workspace:
+      description: Represents an organization or team workspace that contains multiple projects
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174010
+        name:
+          type: string
+          example: Engineering Team
+        description:
+          type: string
+          example: Main workspace for the engineering department
+        ownerId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        settings:
+          type: object
+          properties:
+            defaultTaskTemplate:
+              type: object
+            defaultIssueTemplate:
+              type: object
+            allowedLabels:
+              type: array
+              items:
+                type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    WorkspaceMember:
+      description: Represents a user's membership and role in a workspace
+      type: object
+      properties:
+        workspaceId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum:
+            - owner
+            - admin
+            - member
+            - guest
+        permissions:
+          type: array
+          items:
+            type: string
+            enum:
+              - create_project
+              - invite_members
+              - manage_settings
+              - view_billing
+
+    Project:
+      description: Represents a project (enhanced version of Board)
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: User Authentication Service
+        description:
+          type: string
+        type:
+          type: string
+          enum:
+            - scrum
+            - kanban
+            - basic
+        settings:
+          type: object
+          properties:
+            sprintDuration:
+              type: integer
+            pointScale:
+              type: string
+            defaultEstimateUnit:
+              type: string
+        status:
+          type: string
+          enum:
+            - active
+            - archived
+            - completed
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Task:
+      description: Represents a work item (enhanced version of Card)
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - task
+            - issue
+            - bug
+            - story
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        priority:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+            - urgent
+        assigneeId:
+          type: string
+          format: uuid
+        reporterId:
+          type: string
+          format: uuid
+        estimate:
+          type: number
+        labels:
+          type: array
+          items:
+            type: string
+        dueDate:
+          type: string
+          format: date-time
+        dependencies:
+          type: array
+          items:
+            type: string
+            format: uuid
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              url:
+                type: string
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Comment:
+      description: Represents a comment on a task
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          format: uuid
+        authorId:
+          type: string
+          format: uuid
+        content:
+          type: string
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              url:
+                type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    
     User:
       description: Represents a user in the system
       type: object
@@ -190,6 +402,121 @@ security:
   - bearerAuth: []
 
 paths:
+  
+  /workspaces:
+    post:
+      summary: Create a new workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                settings:
+                  type: object
+      responses:
+        '201':
+          description: Workspace created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+
+  /workspaces/{workspaceId}/projects:
+    post:
+      summary: Create a new project in workspace
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                type:
+                  type: string
+                  enum:
+                    - scrum
+                    - kanban
+                    - basic
+                settings:
+                  type: object
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+
+  /projects/{projectId}/tasks:
+    post:
+      summary: Create a new task in project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - type
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                type:
+                  type: string
+                  enum:
+                    - task
+                    - issue
+                    - bug
+                    - story
+                priority:
+                  type: string
+                assigneeId:
+                  type: string
+                  format: uuid
+                estimate:
+                  type: number
+                dueDate:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+  
   /auth/register:
     post:
       summary: Register a new user

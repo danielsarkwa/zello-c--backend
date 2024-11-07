@@ -101,20 +101,32 @@ jobs:
         run: dotnet test --no-restore --verbosity normal
   
   build-docs:
-    # Only run this job on manual trigger
-    if: github.event_name == 'workflow_dispatch'
+    # Updated condition to include ERD-Diagram branch
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ERD-Diagram'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout your repository using git
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.11.0'
+
+      - name: Install Playwright browsers
+        run: |
+          cd Documentation
+          npm install -D @playwright/test
+          npx playwright install chromium
+
       - name: Install, build, and upload your site
         uses: withastro/action@v3
         with:
           path: ./Documentation
-
+  
   deploy-docs:
-    # Only run this job on manual trigger and after build-docs
-    if: github.event_name == 'workflow_dispatch'
+    # Updated condition to include ERD-Diagram branch
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ERD-Diagram'
     needs: build-docs
     runs-on: ubuntu-latest
     environment:

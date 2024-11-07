@@ -1,22 +1,25 @@
 openapi: 3.0.0
 info:
-  title: Simplified Trello API
+  title: Zello API
   version: 1.0.0
   description: |-
-    A simplified version of Trello's API for managing boards, lists, and cards. This API allows users to:
-    - Create and manage kanban-style boards
-    - Organize work using lists and cards
-    - Collaborate with team members
-    - Track work progress and deadlines
+    A comprehensive API for managing projects, lists, and cards similar to Trello. This API allows users to:
+    - Create and manage workspaces, projects, lists, and cards
+    - Organize work using customizable boards and lists
+    - Collaborate with team members through comments and mentions
+    - Track work progress with activity logs
+    - Manage permissions and roles at different levels
     
-    ### Todo
-    1. Basic CRUD operations for existing resources (GET/PUT/DELETE endpoints)
-    2. Card movement functionality (between lists)
-    3. Activity tracking and audit logs
-    4. Common Trello features like comments and attachments
+    ### Features
+    - Full CRUD operations for all resources
+    - Rich card features including attachments, checklists, and labels
+    - Comprehensive activity tracking
+    - Fine-grained permission system
+    - Authentication and user management
+
 servers:
-- url: http://localhost:3000/api/v1
-  description: Local development server
+  - url: http://localhost:3000/api/v1
+    description: Local development server
 
 components:
   securitySchemes:
@@ -26,6 +29,389 @@ components:
       bearerFormat: JWT
 
   schemas:
+
+    SystemRole:
+      type: string
+      enum:
+        - admin
+        - user
+      description: |
+        System-wide role levels:
+        * admin - Can manage all users and workspaces
+        * user - Regular user with ability to create workspaces
+
+    Workspace:
+      description: Represents an organization or team workspace that contains multiple projects
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174010
+        name:
+          type: string
+          example: Engineering Team
+        description:
+          type: string
+          example: Main workspace for the engineering department
+        ownerId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        settings:
+          type: object
+          properties:
+            defaultTaskTemplate:
+              type: object
+            defaultIssueTemplate:
+              type: object
+            allowedLabels:
+              type: array
+              items:
+                type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    WorkspaceMember:
+      description: Represents a user's membership and role in a workspace
+      type: object
+      properties:
+        workspaceId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum:
+            - owner    # Full control over workspace, can manage all aspects
+            - admin    # Can manage users and settings
+            - user     # Can create and manage cards
+            - guest    # View and comment only
+          description: |
+            Workspace role levels:
+            * owner - Full control, can delete workspace
+            * admin - Can manage users and settings
+            * user - Can create and manage cards
+            * guest - View and comment only
+          example: user
+        permissions:
+          type: array
+          items:
+            type: string
+            enum:
+              - manage_workspace      # Delete workspace, change critical settings
+              - manage_members       # Add/remove members, change roles
+              - create_project      # Create new projects
+              - manage_lists       # Add/modify/delete lists
+              - manage_cards      # Create/edit/delete cards
+              - comment          # Add comments to cards
+              - view            # View workspace content
+
+    Project:
+      description: Represents a project with its lists and settings
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "User Authentication Service"
+        description:
+          type: string
+        type:
+          type: string
+          enum:
+            - scrum
+            - kanban
+            - basic
+        startDate:
+          type: string
+          format: date-time
+          description: Project start date
+          example: "2024-01-01T00:00:00Z"
+        endDate:
+          type: string
+          format: date-time
+          description: Project target completion date
+          example: "2024-06-30T23:59:59Z"
+        settings:
+          type: object
+          properties:
+            sprintDuration:
+              type: integer
+            pointScale:
+              type: string
+            defaultEstimateUnit:
+              type: string
+            defaultIssueTypes:
+              type: array
+              description: Default issue types available in this project
+              items:
+                type: string
+                enum: [ task, bug, feature, improvement, epic ]
+        status:
+          type: string
+          enum:
+            - planning    # Project is in planning phase
+            - active     # Project is currently being worked on
+            - onHold    # Project is temporarily paused
+            - completed # Project has been completed
+            - archived  # Project is archived
+        actualStartDate:
+          type: string
+          format: date-time
+          description: Actual date when project started
+        actualEndDate:
+          type: string
+          format: date-time
+          description: Actual date when project was completed
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ProjectMember:
+      description: Represents a user's membership and role in a project
+      type: object
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum:
+            - admin
+            - member
+            - viewer
+          description: 'admin: full control, member: can edit, viewer: read-only'
+          example: member
+
+    List:
+      description: Represents a column in a project (e.g., 'To Do', 'In Progress', 'Done')
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174002
+        projectId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174001
+        title:
+          type: string
+          example: In Progress
+        position:
+          type: integer
+          description: Order of the list in the project (0-based)
+          example: 1
+        createdAt:
+          type: string
+          format: date-time
+          example: '2024-01-01T12:00:00Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2024-01-01T12:00:00Z'
+
+    Card:
+      description: Represents a task, issue, or other work item within a list
+      type: object
+      required:
+        - title
+        - type
+      properties:
+        # Base properties
+        id:
+          type: string
+          format: uuid
+        listId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - task        # Regular task
+            - bug         # Bug report
+            - feature     # Feature request
+            - improvement # Enhancement
+            - epic       # Large initiative
+          description: Type of the card
+          example: "task"
+        title:
+          type: string
+        description:
+          type: string
+        position:
+          type: integer
+
+        # Scheduling properties
+        dueDate:
+          type: string
+          format: date-time
+        startDate:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+
+        # Task/Issue management properties
+        priority:
+          type: string
+          enum: [ low, medium, high, urgent ]
+        severity:
+          type: string
+          enum: [ trivial, minor, major, critical, blocker ]
+          description: Severity level for bugs and issues
+        assignees:
+          type: array
+          items:
+            type: string
+            format: uuid
+        status:
+          type: string
+          enum: [ todo, in_progress, blocked, review, done ]
+        labels:
+          type: array
+          items:
+            type: string
+
+        # Additional properties based on type
+        issueProperties:
+          type: object
+          description: Additional properties for issues/bugs
+          properties:
+            affectedVersion:
+              type: string
+            targetVersion:
+              type: string
+            stepsToReproduce:
+              type: string
+            environment:
+              type: string
+            browserInfo:
+              type: string
+
+        taskProperties:
+          type: object
+          description: Additional properties for tasks
+          properties:
+            estimatedHours:
+              type: number
+            actualHours:
+              type: number
+            dependencies:
+              type: array
+              items:
+                type: string
+                format: uuid
+
+        # Existing properties
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              filename:
+                type: string
+              url:
+                type: string
+              uploadedBy:
+                type: string
+                format: uuid
+              uploadedAt:
+                type: string
+                format: date-time
+        estimate:
+          type: number
+          description: Estimated effort/time in the project's default unit
+        checklists:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+              items:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    text:
+                      type: string
+                    checked:
+                      type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+
+    CustomRole:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "HR Manager"
+        permissions:
+          type: array
+          items:
+            type: string
+        workspaceId:
+          type: string
+          format: uuid
+
+    ActivityLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entityType:
+          type: string
+          enum: [ workspace, project, list, card ]
+        entityId:
+          type: string
+          format: uuid
+        action:
+          type: string
+          enum: [ created, updated, deleted, moved ]
+        userId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: object
+
     User:
       description: Represents a user in the system
       type: object
@@ -65,117 +451,6 @@ components:
           description: Token expiration time in seconds
           example: 3600
 
-    Board:
-      description: Represents a project board that contains lists and cards
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174001
-        title:
-          type: string
-          example: Project Alpha
-        description:
-          type: string
-          example: Main project board for Alpha development
-        ownerId:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
-        createdAt:
-          type: string
-          format: date-time
-          example: '2024-01-01T12:00:00Z'
-        updatedAt:
-          type: string
-          format: date-time
-          example: '2024-01-01T12:00:00Z'
-
-    BoardMember:
-      description: Represents a user's membership and role in a board
-      type: object
-      properties:
-        boardId:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174001
-        userId:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
-        role:
-          type: string
-          enum:
-          - admin
-          - member
-          - viewer
-          description: 'admin: full control, member: can edit, viewer: read-only'
-          example: member
-
-    List:
-      description: Represents a column in a board (e.g., 'To Do', 'In Progress', 'Done')
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174002
-        boardId:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174001
-        title:
-          type: string
-          example: In Progress
-        position:
-          type: integer
-          description: Order of the list in the board (0-based)
-          example: 1
-        createdAt:
-          type: string
-          format: date-time
-          example: '2024-01-01T12:00:00Z'
-        updatedAt:
-          type: string
-          format: date-time
-          example: '2024-01-01T12:00:00Z'
-
-    Card:
-      description: Represents a task or item within a list
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174003
-        listId:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174002
-        title:
-          type: string
-          example: Implement user authentication
-        description:
-          type: string
-          example: Set up JWT-based authentication with refresh tokens
-        position:
-          type: integer
-          description: Order of the card in the list (0-based)
-          example: 0
-        dueDate:
-          type: string
-          format: date-time
-          example: '2024-01-15T17:00:00Z'
-        createdAt:
-          type: string
-          format: date-time
-          example: '2024-01-01T12:00:00Z'
-        updatedAt:
-          type: string
-          format: date-time
-          example: '2024-01-01T12:00:00Z'
-
     Error:
       type: object
       properties:
@@ -187,14 +462,175 @@ components:
           example: INVALID_PARAMETERS
 
 security:
-  - bearerAuth: []
+  - bearerAuth: [ ]
 
 paths:
-  /auth/register:
+
+  /cards/{cardId}:
+    get:
+      summary: Get card details
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Card details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Card'
+              examples:
+                success:
+                  summary: Complete card example
+                  value: {
+                    "id": "123e4567-e89b-12d3-a456-426614174060",
+                    "listId": "123e4567-e89b-12d3-a456-426614174002",
+                    "type": "task",
+                    "title": "Implement user authentication",
+                    "description": "Implement OAuth2 authentication flow with social login options",
+                    "position": 1,
+                    "dueDate": "2024-01-20T17:00:00Z",
+                    "startDate": "2024-01-15T09:00:00Z",
+                    "completedAt": null,
+                    "priority": "high",
+                    "severity": null,
+                    "assignees": [
+                      "123e4567-e89b-12d3-a456-426614174000",
+                      "123e4567-e89b-12d3-a456-426614174001"
+                    ],
+                    "status": "in_progress",
+                    "labels": [ "feature", "sprint-1" ],
+                    "issueProperties": null,
+                    "taskProperties": {
+                      "estimatedHours": 16,
+                      "actualHours": 8,
+                      "dependencies": [ ]
+                    },
+                    "attachments": [
+                      {
+                        "id": "123e4567-e89b-12d3-a456-426614174070",
+                        "filename": "auth-flow-diagram.png",
+                        "url": "/attachments/auth-flow-diagram.png",
+                        "uploadedBy": "123e4567-e89b-12d3-a456-426614174000",
+                        "uploadedAt": "2024-01-15T10:30:00Z"
+                      }
+                    ],
+                    "estimate": 8,
+                    "checklists": [
+                      {
+                        "id": "123e4567-e89b-12d3-a456-426614174080",
+                        "title": "Implementation Steps",
+                        "items": [
+                          {
+                            "id": "123e4567-e89b-12d3-a456-426614174090",
+                            "text": "Setup OAuth2 provider",
+                            "checked": true
+                          },
+                          {
+                            "id": "123e4567-e89b-12d3-a456-426614174091",
+                            "text": "Implement login flow",
+                            "checked": false
+                          }
+                        ]
+                      }
+                    ],
+                    "createdAt": "2024-01-15T09:00:00Z",
+                    "updatedAt": "2024-01-15T10:30:00Z"
+                  }
+        '404':
+          description: Card not found
+
+    put:
+      summary: Update card
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+
+            example:
+              title: "Updated Card Title"
+              description: "Revised description for the card"
+              position: 2
+              dueDate: "2024-02-01T15:00:00Z"
+              priority: "high"
+              assignees: [ "123e4567-e89b-12d3-a456-426614174000" ]
+              status: "in_progress"
+              labels: [ "frontend", "bug" ]
+
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                position:
+                  type: integer
+                dueDate:
+                  type: string
+                  format: date-time
+                priority:
+                  type: string
+                  enum: [ low, medium, high, urgent ]
+                assignees:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                status:
+                  type: string
+                  enum: [ todo, in_progress, blocked, review, done ]
+                labels:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Card updated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Card not found
+
+    delete:
+      summary: Delete card
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Card deleted
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Card not found
+
+  /cards/{cardId}/move:
     post:
-      summary: Register a new user
-      description: Creates a new user account in the system
-      security: []
+      summary: Move a card to a different list
+      description: Moves a card to a specified position in a target list
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -202,9 +638,394 @@ paths:
             schema:
               type: object
               required:
-              - email
-              - password
-              - name
+                - targetListId
+                - position
+              properties:
+                targetListId:
+                  type: string
+                  format: uuid
+                  description: ID of the list to move the card to
+                position:
+                  type: integer
+                  description: New position in target list (0-based)
+            example:
+              targetListId: "123e4567-e89b-12d3-a456-426614174002"
+              position: 2
+      responses:
+        '200':
+          description: Card successfully moved
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidPosition:
+                  value:
+                    message: "Invalid position specified"
+                    code: "INVALID_POSITION"
+                invalidList:
+                  value:
+                    message: "Target list must be in the same project"
+                    code: "INVALID_LIST"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions to move card
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Card or target list not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict - card position already occupied or list is locked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /workspaces/{workspaceId}/custom-roles:
+    post:
+      summary: Create a custom role
+      description: Creates a new custom role within a workspace with specified permissions
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the workspace to create the custom role in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - permissions
+              properties:
+                name:
+                  type: string
+                  example: "Technical Lead"
+                  minLength: 1
+                  maxLength: 50
+                description:
+                  type: string
+                  example: "Role for technical team leaders"
+                permissions:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - manage_workspace
+                      - manage_members
+                      - create_project
+                      - manage_lists
+                      - manage_cards
+                      - comment
+                      - view
+            example:
+              name: "Technical Lead"
+              description: "Role for technical team leaders"
+              permissions: [
+                "create_project",
+                "manage_lists",
+                "manage_cards",
+                "comment",
+                "view"
+              ]
+      responses:
+        '201':
+          description: Custom role successfully created
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidName:
+                  value:
+                    message: "Role name must be between 1 and 50 characters"
+                    code: "INVALID_NAME"
+                invalidPermissions:
+                  value:
+                    message: "Invalid permissions specified"
+                    code: "INVALID_PERMISSIONS"
+                duplicateName:
+                  value:
+                    message: "Role name already exists in workspace"
+                    code: "DUPLICATE_NAME"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions to create custom roles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "Only workspace admins can create custom roles"
+                code: "INSUFFICIENT_PERMISSIONS"
+        '404':
+          description: Workspace not found
+        '409':
+          description: Conflict - maximum number of custom roles reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "Maximum number of custom roles (10) reached for workspace"
+                code: "MAX_ROLES_REACHED"
+
+  /cards/{cardId}/comments:
+    post:
+      summary: Add a comment to a card
+      description: Creates a new comment on a card. Supports threaded discussions through optional parentId
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the card to comment on
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+                  maxLength: 10000
+                  description: The comment text, supports markdown formatting
+                parentId:
+                  type: string
+                  format: uuid
+                  description: ID of parent comment for threaded discussions
+                mentions:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: Array of user IDs mentioned in the comment
+            example:
+              content: "We should consider using a different color scheme for this component."
+              mentions: [ "123e4567-e89b-12d3-a456-426614174000" ]
+      responses:
+        '201':
+          description: Comment successfully created
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                emptyContent:
+                  value:
+                    message: "Comment content cannot be empty"
+                    code: "EMPTY_CONTENT"
+                contentTooLong:
+                  value:
+                    message: "Comment exceeds maximum length of 10000 characters"
+                    code: "CONTENT_TOO_LONG"
+                invalidParentId:
+                  value:
+                    message: "Parent comment does not exist or belongs to different card"
+                    code: "INVALID_PARENT_COMMENT"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions to comment on card
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "User does not have comment permission in this workspace"
+                code: "INSUFFICIENT_PERMISSIONS"
+        '404':
+          description: Card not found
+        '429':
+          description: Too many comments in short time period
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "Comment rate limit exceeded. Please wait a few minutes."
+                code: "RATE_LIMIT_EXCEEDED"
+
+    get:
+      summary: Get card comments
+      description: Retrieves comments for a card with optional pagination and threading
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the card to get comments for
+        - name: parentId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter to get replies to a specific comment
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [ newest, oldest ]
+            default: newest
+      responses:
+        '200':
+          description: Comments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        cardId:
+                          type: string
+                          format: uuid
+                        parentId:
+                          type: string
+                          format: uuid
+                        content:
+                          type: string
+                        authorId:
+                          type: string
+                          format: uuid
+                        mentions:
+                          type: array
+                          items:
+                            type: string
+                            format: uuid
+                        replyCount:
+                          type: integer
+                        createdAt:
+                          type: string
+                          format: date-time
+                        updatedAt:
+                          type: string
+                          format: date-time
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  pages:
+                    type: integer
+              example:
+                items: [
+                  {
+                    id: "123e4567-e89b-12d3-a456-426614174020",
+                    cardId: "123e4567-e89b-12d3-a456-426614174002",
+                    content: "We should consider using a different color scheme for this component.",
+                    authorId: "123e4567-e89b-12d3-a456-426614174000",
+                    mentions: [ "123e4567-e89b-12d3-a456-426614174001" ],
+                    replyCount: 2,
+                    createdAt: "2024-01-15T09:30:00Z",
+                    updatedAt: "2024-01-15T09:30:00Z"
+                  },
+                  {
+                    id: "123e4567-e89b-12d3-a456-426614174021",
+                    cardId: "123e4567-e89b-12d3-a456-426614174002",
+                    parentId: "123e4567-e89b-12d3-a456-426614174020",
+                    content: "Agreed, let's use the company's brand colors.",
+                    authorId: "123e4567-e89b-12d3-a456-426614174001",
+                    mentions: [ ],
+                    replyCount: 0,
+                    createdAt: "2024-01-15T10:00:00Z",
+                    updatedAt: "2024-01-15T10:00:00Z"
+                  }
+                ]
+                total: 2,
+                page: 1,
+                pages: 1
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions to view card comments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Card not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/register:
+    post:
+      summary: Register a new user
+      description: Creates a new user account in the system
+      security: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - name
               properties:
                 email:
                   type: string
@@ -221,10 +1042,6 @@ paths:
       responses:
         '201':
           description: User successfully registered
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
         '400':
           description: Invalid request parameters
           content:
@@ -238,164 +1055,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /boards:
-    post:
-      summary: Create a new board
-      description: Creates a new board for organizing lists and cards
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - title
-              properties:
-                title:
-                  type: string
-                description:
-                  type: string
-            example:
-              title: Marketing Campaign Q1
-              description: Track all marketing initiatives for Q1 2024
-      responses:
-        '201':
-          description: Board successfully created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Board'
-        '400':
-          description: Invalid request parameters
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  '/boards/{boardId}/lists':
-    post:
-      summary: Create a new list
-      description: Creates a new list within a board
-      parameters:
-        - name: board_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - title
-              properties:
-                title:
-                  type: string
-                position:
-                  type: integer
-            example:
-              title: In Progress
-              position: 1
-      responses:
-        '201':
-          description: List successfully created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/List'
-        '400':
-          description: Invalid request parameters
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Board not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  '/lists/{listId}/cards':
-    post:
-      summary: Create a new card
-      description: Creates a new card within a list
-      parameters:
-        - name: list_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - title
-              properties:
-                title:
-                  type: string
-                description:
-                  type: string
-                position:
-                  type: integer
-                dueDate:
-                  type: string
-                  format: date-time
-            example:
-              title: Design social media graphics
-              description: Create banner images for Facebook and Twitter
-              position: 0
-              dueDate: '2024-01-20T17:00:00Z'
-      responses:
-        '201':
-          description: Card successfully created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Card'
-        '400':
-          description: Invalid request parameters
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: List not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
   /auth/login:
     post:
       summary: Authenticate user
       description: Authenticates a user and returns access and refresh tokens
-      security: []
+      security: [ ]
       requestBody:
         required: true
         content:
@@ -438,7 +1102,7 @@ paths:
     post:
       summary: Refresh access token
       description: Get a new access token using a valid refresh token
-      security: []
+      security: [ ]
       requestBody:
         required: true
         content:
@@ -465,7 +1129,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-                
+
   /auth/logout:
     post:
       summary: Logout user
@@ -486,14 +1150,6 @@ paths:
       responses:
         '200':
           description: Successfully logged out
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Successfully logged out
         '401':
           description: Invalid refresh token
           content:
@@ -501,42 +1157,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /auth/password/reset-request:
+  /auth/password/change:
     post:
-      summary: Request password reset
-      description: Sends a password reset link to the user's email
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - email
-              properties:
-                email:
-                  type: string
-                  format: email
-            example:
-              email: jane.smith@example.com
-      responses:
-        '200':
-          description: Password reset email sent
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Password reset instructions sent to email
-
-  /auth/password/reset:
-    post:
-      summary: Reset password
-      description: Reset password using the token received via email
-      security: []
+      summary: Change password
+      description: Change password, token and password are required for password change.
+      security: [ ]
       requestBody:
         required: true
         content:
@@ -557,15 +1182,7 @@ paths:
               newPassword: newSecurePassword123
       responses:
         '200':
-          description: Password successfully reset
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Password successfully reset
+          description: Password successfully changed
         '400':
           description: Invalid password format
           content:
@@ -577,14 +1194,311 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'  
+                $ref: '#/components/schemas/Error'
 
-  '/boards/{boardId}/members':
+  /workspaces:
     post:
-      summary: Add member to board
-      description: Adds a new member to the board with specified role
+      summary: Create a new workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                settings:
+                  type: object
+                  properties:
+                    defaultTaskTemplate:
+                      type: object
+                    defaultIssueTemplate:
+                      type: object
+                    allowedLabels:
+                      type: array
+                      items:
+                        type: string
+            example:
+              name: "Product Development"
+              description: "Main workspace for product development team"
+              settings: {
+                defaultTaskTemplate: {
+                  assignee: null,
+                  labels: [ "feature" ],
+                  checklist: [ "Planning", "Development", "Testing" ]
+                },
+                defaultIssueTemplate: {
+                  priority: "medium",
+                  labels: [ "bug" ]
+                },
+                allowedLabels: [ "bug", "feature", "improvement", "urgent" ]
+              }
+
+      responses:
+        '201':
+          description: Workspace created successfully
+        '400':
+          description: Invalid request parameters
+        '401':
+          description: Unauthorized
+
+  /workspaces/{workspaceId}/projects:
+    get:
+      summary: List projects in workspace
       parameters:
-        - name: board_id
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ active, archived, completed ]
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  pages:
+                    type: integer
+              example:
+                items: [
+                  {
+                    id: "123e4567-e89b-12d3-a456-426614174030",
+                    workspaceId: "123e4567-e89b-12d3-a456-426614174010",
+                    name: "Website Redesign",
+                    description: "Complete overhaul of company website with modern design and improved UX",
+                    type: "kanban",
+                    settings: {
+                      sprintDuration: 14,
+                      pointScale: "fibonacci",
+                      defaultEstimateUnit: "days"
+                    },
+                    status: "active",
+                    createdAt: "2024-01-01T12:00:00Z",
+                    updatedAt: "2024-01-01T12:00:00Z"
+                  },
+                  {
+                    id: "123e4567-e89b-12d3-a456-426614174031",
+                    workspaceId: "123e4567-e89b-12d3-a456-426614174010",
+                    name: "Mobile App Development",
+                    description: "Native mobile application for iOS and Android platforms",
+                    type: "scrum",
+                    settings: {
+                      sprintDuration: 14,
+                      pointScale: "fibonacci",
+                      defaultEstimateUnit: "hours"
+                    },
+                    status: "active",
+                    createdAt: "2024-01-02T12:00:00Z",
+                    updatedAt: "2024-01-02T12:00:00Z"
+                  },
+                  {
+                    id: "123e4567-e89b-12d3-a456-426614174032",
+                    workspaceId: "123e4567-e89b-12d3-a456-426614174010",
+                    name: "API Integration",
+                    description: "Third-party API integration project",
+                    type: "basic",
+                    settings: {
+                      defaultEstimateUnit: "hours"
+                    },
+                    status: "completed",
+                    createdAt: "2023-12-01T12:00:00Z",
+                    updatedAt: "2024-01-15T16:30:00Z"
+                  }
+                ]
+                total: 3,
+                page: 1,
+                pages: 1
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "Invalid page number. Page must be greater than 0"
+                code: "INVALID_PAGE_NUMBER"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "Authentication required"
+                code: "UNAUTHORIZED"
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "You don't have permission to view projects in this workspace"
+                code: "INSUFFICIENT_PERMISSIONS"
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "Workspace not found"
+                code: "WORKSPACE_NOT_FOUND"
+
+  /workspaces/{workspaceId}:
+    get:
+      summary: Get workspace details
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workspace details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+              example:
+                id: "123e4567-e89b-12d3-a456-426614174010"
+                name: "Engineering Team"
+                description: "Main workspace for engineering department"
+                ownerId: "123e4567-e89b-12d3-a456-426614174000"
+                settings: {
+                  defaultTaskTemplate: {
+                    assignee: null,
+                    labels: [ "feature" ],
+                    checklist: [ "Planning", "Development", "Testing" ]
+                  },
+                  defaultIssueTemplate: {
+                    priority: "medium",
+                    labels: [ "bug" ],
+                    assignee: null
+                  },
+                  allowedLabels: [ "bug", "feature", "improvement", "urgent" ]
+                }
+                createdAt: "2024-01-01T12:00:00Z"
+                updatedAt: "2024-01-15T08:30:00Z"
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "Workspace not found"
+                code: "WORKSPACE_NOT_FOUND"
+
+    put:
+      summary: Update workspace
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              name: "Product Development"
+              description: "Main workspace for product development team"
+              settings: {
+                defaultTaskTemplate: {
+                  assignee: null,
+                  labels: [ "feature" ],
+                  checklist: [ "Planning", "Development", "Testing" ]
+                },
+                allowedLabels: [ "bug", "feature", "improvement", "urgent" ]
+              }
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                settings:
+                  type: object
+                  properties:
+                    defaultTaskTemplate:
+                      type: object
+                    defaultIssueTemplate:
+                      type: object
+                    allowedLabels:
+                      type: array
+                      items:
+                        type: string
+      responses:
+        '200':
+          description: Workspace updated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Workspace not found
+
+    delete:
+      summary: Delete workspace
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Workspace deleted
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Workspace not found
+
+  /workspaces/{workspaceId}/members:
+    post:
+      summary: Add or update workspace member
+      description: Add a new member or update existing member's role (cannot elevate above own role level)
+      parameters:
+        - name: workspaceId
           in: path
           required: true
           schema:
@@ -597,8 +1511,8 @@ paths:
             schema:
               type: object
               required:
-              - userId
-              - role
+                - userId
+                - role
               properties:
                 userId:
                   type: string
@@ -606,19 +1520,823 @@ paths:
                 role:
                   type: string
                   enum:
-                  - admin
-                  - member
-                  - viewer
+                    - admin
+                    - user
+                    - guest
             example:
-              userId: 123e4567-e89b-12d3-a456-426614174000
-              role: member
+              userId: "123e4567-e89b-12d3-a456-426614174000"
+              role: "admin"
+              permissions: [
+                "manage_workspace",
+                "manage_members",
+                "create_project",
+                "manage_lists",
+                "manage_cards"
+              ]
+
       responses:
         '201':
-          description: Member successfully added to board
+          description: Member successfully added or updated
+        '403':
+          description: Insufficient permissions or attempting to elevate above own role
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BoardMember'
+                $ref: '#/components/schemas/Error'
+
+  /system/users/{userId}/role:
+    put:
+      summary: Update user's system role
+      description: Update a user's system-wide role (Admin only)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              role: "admin"
+              reason: "Promoting to handle system-wide configurations"
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  $ref: '#/components/schemas/SystemRole'
+      responses:
+        '200':
+          description: User role updated successfully
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cards/{cardId}/checklists:
+    post:
+      summary: Add checklist to card
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              title: "Development Tasks"
+              items: [
+                {
+                  text: "Setup development environment",
+                  checked: true
+                },
+                {
+                  text: "Create basic project structure",
+                  checked: false
+                }
+              ]
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      text:
+                        type: string
+                      checked:
+                        type: boolean
+                        default: false
+      responses:
+        '201':
+          description: Checklist added successfully
+
+  /cards/{cardId}/labels:
+    post:
+      summary: Add labels to card
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              labels: [ "urgent", "bug", "frontend" ]
+            schema:
+              type: object
+              required:
+                - labels
+              properties:
+                labels:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Labels added successfully
+
+  /workspaces/{workspaceId}/labels:
+    get:
+      summary: Get workspace labels
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of workspace labels
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        color:
+                          type: string
+                        workspaceId:
+                          type: string
+                          format: uuid
+              examples:
+                success:
+                  summary: List of workspace labels
+                  value: {
+                    "items": [
+                      {
+                        "id": "123e4567-e89b-12d3-a456-426614174050",
+                        "name": "bug",
+                        "color": "#FF0000",
+                        "workspaceId": "123e4567-e89b-12d3-a456-426614174010"
+                      },
+                      {
+                        "id": "123e4567-e89b-12d3-a456-426614174051",
+                        "name": "feature",
+                        "color": "#00FF00",
+                        "workspaceId": "123e4567-e89b-12d3-a456-426614174010"
+                      },
+                      {
+                        "id": "123e4567-e89b-12d3-a456-426614174052",
+                        "name": "improvement",
+                        "color": "#0000FF",
+                        "workspaceId": "123e4567-e89b-12d3-a456-426614174010"
+                      },
+                      {
+                        "id": "123e4567-e89b-12d3-a456-426614174053",
+                        "name": "urgent",
+                        "color": "#FF4500",
+                        "workspaceId": "123e4567-e89b-12d3-a456-426614174010"
+                      }
+                    ],
+                    "total": 4,
+                    "page": 1,
+                    "pages": 1
+                  }
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "Invalid workspace ID format"
+                code: "INVALID_WORKSPACE_ID"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "Authentication required"
+                code: "UNAUTHORIZED"
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "Insufficient permissions to view workspace labels"
+                code: "INSUFFICIENT_PERMISSIONS"
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "Workspace not found"
+                code: "WORKSPACE_NOT_FOUND"
+
+  /users/me:
+    get:
+      summary: Get current user profile
+      description: Retrieves the profile of the currently authenticated user
+      responses:
+        '200':
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              examples:
+                success:
+                  summary: Current user profile
+                  value: {
+                    "id": "123e4567-e89b-12d3-a456-426614174000",
+                    "email": "john.doe@example.com",
+                    "name": "John Doe",
+                    "role": "user",
+                    "lastLoginAt": "2024-01-15T16:30:00Z",
+                    "createdAt": "2023-12-01T09:00:00Z",
+                    "updatedAt": "2024-01-15T16:30:00Z"
+                  }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "Authentication required"
+                code: "UNAUTHORIZED"
+        '403':
+          description: Token expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "Access token has expired"
+                code: "TOKEN_EXPIRED"
+
+  /cards/{cardId}/assignees:
+    post:
+      summary: Assign users to card
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              userIds: [
+                "123e4567-e89b-12d3-a456-426614174000",
+                "123e4567-e89b-12d3-a456-426614174001"
+              ]
+
+            schema:
+              type: object
+              required:
+                - userIds
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          description: Users assigned successfully
+
+  /projects:
+    post:
+      summary: Create a new project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              example:
+                name: "Website Redesign"
+                description: "Complete overhaul of company website"
+                workspaceId: "123e4567-e89b-12d3-a456-426614174010"
+                type: "kanban"
+                settings: {
+                  sprintDuration: 14,
+                  pointScale: "fibonacci",
+                  defaultEstimateUnit: "days"
+                }
+              type: object
+              required:
+                - name
+                - workspaceId
+              properties:
+                name:
+                  type: string
+                  example: "Website Redesign"
+                description:
+                  type: string
+                workspaceId:
+                  type: string
+                  format: uuid
+                type:
+                  type: string
+                  enum: [ scrum, kanban, basic ]
+                  default: basic
+                settings:
+                  type: object
+                  properties:
+                    sprintDuration:
+                      type: integer
+                    pointScale:
+                      type: string
+                    defaultEstimateUnit:
+                      type: string
+      responses:
+        '201':
+          description: Project created successfully
+
+  /projects/{projectId}:
+    get:
+      summary: Get project details
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+              examples:
+                success:
+                  summary: Project details response
+                  value: {
+                    "id": "123e4567-e89b-12d3-a456-426614174030",
+                    "workspaceId": "123e4567-e89b-12d3-a456-426614174010",
+                    "name": "Website Redesign",
+                    "description": "Complete overhaul of company website with modern design and improved UX",
+                    "type": "kanban",
+                    "startDate": "2024-01-01T00:00:00Z",
+                    "endDate": "2024-06-30T23:59:59Z",
+                    "actualStartDate": "2024-01-01T09:00:00Z",
+                    "actualEndDate": null,
+                    "settings": {
+                      "sprintDuration": 14,
+                      "pointScale": "fibonacci",
+                      "defaultEstimateUnit": "days",
+                      "columns": [
+                        {
+                          "name": "Backlog",
+                          "limit": null
+                        },
+                        {
+                          "name": "In Progress",
+                          "limit": 5
+                        },
+                        {
+                          "name": "Review",
+                          "limit": 3
+                        },
+                        {
+                          "name": "Done",
+                          "limit": null
+                        }
+                      ],
+                      "labels": [
+                        {
+                          "name": "frontend",
+                          "color": "#FF0000"
+                        },
+                        {
+                          "name": "backend",
+                          "color": "#00FF00"
+                        },
+                        {
+                          "name": "urgent",
+                          "color": "#FF4500"
+                        }
+                      ]
+                    },
+                    "status": "active",
+                    "members": [
+                      {
+                        "userId": "123e4567-e89b-12d3-a456-426614174001",
+                        "role": "admin"
+                      },
+                      {
+                        "userId": "123e4567-e89b-12d3-a456-426614174002",
+                        "role": "member"
+                      }
+                    ],
+                    "createdAt": "2024-01-01T12:00:00Z",
+                    "updatedAt": "2024-01-15T16:30:00Z"
+                  }
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "Project not found"
+                code: "PROJECT_NOT_FOUND"
+
+    put:
+      summary: Update project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              name: "Updated Project Name"
+              description: "Updated project description"
+              type: "scrum"
+              status: "active"
+              settings: {
+                sprintDuration: 14,
+                pointScale: "fibonacci",
+                defaultEstimateUnit: "days"
+              }
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                type:
+                  type: string
+                  enum: [ scrum, kanban, basic ]
+                status:
+                  type: string
+                  enum: [ active, archived, completed ]
+                settings:
+                  type: object
+      responses:
+        '200':
+          description: Project updated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Project not found
+
+    delete:
+      summary: Delete project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Project deleted
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Project not found
+
+
+  '/projects/{projectId}/lists':
+    post:
+      summary: Create a new list
+      description: Creates a new list within a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+                position:
+                  type: integer
+            example:
+              title: In Progress
+              position: 1
+      responses:
+        '201':
+          description: List successfully created
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /lists/{listId}:
+    get:
+      summary: Get list details
+      parameters:
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/List'
+              examples:
+                success:
+                  summary: List details response
+                  value: {
+                    "id": "123e4567-e89b-12d3-a456-426614174002",
+                    "projectId": "123e4567-e89b-12d3-a456-426614174030",
+                    "title": "In Progress",
+                    "position": 1,
+                    "settings": {
+                      "wipLimit": 5,
+                      "color": "#0099FF",
+                      "collapsed": false,
+                      "description": "Tasks currently being worked on"
+                    },
+                    "statistics": {
+                      "totalCards": 3,
+                      "completedCards": 1,
+                      "overdueCards": 1
+                    },
+                    "createdAt": "2024-01-01T12:00:00Z",
+                    "updatedAt": "2024-01-15T16:30:00Z",
+                    "cards": [
+                      {
+                        "id": "123e4567-e89b-12d3-a456-426614174060",
+                        "title": "Implement user authentication",
+                        "priority": "high",
+                        "dueDate": "2024-01-20T17:00:00Z",
+                        "position": 0
+                      },
+                      {
+                        "id": "123e4567-e89b-12d3-a456-426614174061",
+                        "title": "Design landing page",
+                        "priority": "medium",
+                        "dueDate": "2024-01-25T17:00:00Z",
+                        "position": 1
+                      },
+                      {
+                        "id": "123e4567-e89b-12d3-a456-426614174062",
+                        "title": "Setup CI/CD pipeline",
+                        "priority": "urgent",
+                        "dueDate": "2024-01-18T17:00:00Z",
+                        "position": 2
+                      }
+                    ]
+                  }
+        '404':
+          description: List not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: "List not found"
+                code: "LIST_NOT_FOUND"
+
+    put:
+      summary: Update list
+      parameters:
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                position:
+                  type: integer
+            example:
+              title: "In Review"
+              position: 3
+      responses:
+        '200':
+          description: List updated
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: List not found
+
+    delete:
+      summary: Delete list
+      parameters:
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: List deleted
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: List not found
+
+
+  '/lists/{listId}/cards':
+    post:
+      summary: Create a new card
+      description: Creates a new card (task, issue, etc.) within a list
+      parameters:
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - type
+              properties:
+                title:
+                  type: string
+                type:
+                  type: string
+                  enum: [ task, bug, feature, improvement, epic ]
+                description:
+                  type: string
+                priority:
+                  type: string
+                  enum: [ low, medium, high, urgent ]
+                severity:
+                  type: string
+                  enum: [ trivial, minor, major, critical, blocker ]
+                startDate:
+                  type: string
+                  format: date-time
+                dueDate:
+                  type: string
+                  format: date-time
+            examples:
+              task:
+                summary: Create a new task
+                value:
+                  title: "Implement user authentication"
+                  type: "task"
+                  description: "Implement OAuth2 authentication flow"
+                  priority: "high"
+                  startDate: "2024-01-15T00:00:00Z"
+                  dueDate: "2024-01-20T23:59:59Z"
+                  taskProperties:
+                    estimatedHours: 16
+                    dependencies: [ ]
+              bug:
+                summary: Create a new bug report
+                value:
+                  title: "Login button not working on Safari"
+                  type: "bug"
+                  description: "Users cannot click the login button in Safari browser"
+                  priority: "high"
+                  severity: "major"
+                  issueProperties:
+                    affectedVersion: "1.2.0"
+                    environment: "production"
+                    browserInfo: "Safari 15.0"
+                    stepsToReproduce: "1. Navigate to login page\n2. Fill in credentials\n3. Click login button"
+      responses:
+        '201':
+          description: Card successfully created
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: List not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  '/projects/{projectId}/members':
+    post:
+      summary: Add member to project
+      description: Adds a new member to the project with specified role
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+                - role
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                role:
+                  type: string
+                  enum:
+                    - admin
+                    - member
+                    - viewer
+            example:
+              userId: "123e4567-e89b-12d3-a456-426614174000"
+              role: "member"
+              permissions: [
+                "manage_cards",
+                "comment",
+                "view"
+              ]
+      responses:
+        '201':
+          description: Member successfully added to project
         '400':
           description: Invalid request parameters
           content:
@@ -638,7 +2356,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Board or user not found
+          description: Project or user not found
           content:
             application/json:
               schema:

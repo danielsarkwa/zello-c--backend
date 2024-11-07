@@ -483,6 +483,64 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Card'
+              examples:
+                success:
+                  summary: Complete card example
+                  value: {
+                    "id": "123e4567-e89b-12d3-a456-426614174060",
+                    "listId": "123e4567-e89b-12d3-a456-426614174002",
+                    "type": "task",
+                    "title": "Implement user authentication",
+                    "description": "Implement OAuth2 authentication flow with social login options",
+                    "position": 1,
+                    "dueDate": "2024-01-20T17:00:00Z",
+                    "startDate": "2024-01-15T09:00:00Z",
+                    "completedAt": null,
+                    "priority": "high",
+                    "severity": null,
+                    "assignees": [
+                      "123e4567-e89b-12d3-a456-426614174000",
+                      "123e4567-e89b-12d3-a456-426614174001"
+                    ],
+                    "status": "in_progress",
+                    "labels": [ "feature", "sprint-1" ],
+                    "issueProperties": null,
+                    "taskProperties": {
+                      "estimatedHours": 16,
+                      "actualHours": 8,
+                      "dependencies": [ ]
+                    },
+                    "attachments": [
+                      {
+                        "id": "123e4567-e89b-12d3-a456-426614174070",
+                        "filename": "auth-flow-diagram.png",
+                        "url": "/attachments/auth-flow-diagram.png",
+                        "uploadedBy": "123e4567-e89b-12d3-a456-426614174000",
+                        "uploadedAt": "2024-01-15T10:30:00Z"
+                      }
+                    ],
+                    "estimate": 8,
+                    "checklists": [
+                      {
+                        "id": "123e4567-e89b-12d3-a456-426614174080",
+                        "title": "Implementation Steps",
+                        "items": [
+                          {
+                            "id": "123e4567-e89b-12d3-a456-426614174090",
+                            "text": "Setup OAuth2 provider",
+                            "checked": true
+                          },
+                          {
+                            "id": "123e4567-e89b-12d3-a456-426614174091",
+                            "text": "Implement login flow",
+                            "checked": false
+                          }
+                        ]
+                      }
+                    ],
+                    "createdAt": "2024-01-15T09:00:00Z",
+                    "updatedAt": "2024-01-15T10:30:00Z"
+                  }
         '404':
           description: Card not found
 
@@ -1851,6 +1909,10 @@ paths:
                     "name": "Website Redesign",
                     "description": "Complete overhaul of company website with modern design and improved UX",
                     "type": "kanban",
+                    "startDate": "2024-01-01T00:00:00Z",
+                    "endDate": "2024-06-30T23:59:59Z",
+                    "actualStartDate": "2024-01-01T09:00:00Z",
+                    "actualEndDate": null,
                     "settings": {
                       "sprintDuration": 14,
                       "pointScale": "fibonacci",

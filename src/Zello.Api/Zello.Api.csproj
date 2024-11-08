@@ -5,8 +5,13 @@
         <ImplicitUsings>enable</ImplicitUsings>
     </PropertyGroup>
     <ItemGroup>
+        <PackageReference Include="Meziantou.Analyzer" Version="2.0.177">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.10"/>
         <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
+        <PackageReference Remove="Meziantou.Analyzer" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Zello.Infrastructure\Zello.Infrastructure.csproj"/>

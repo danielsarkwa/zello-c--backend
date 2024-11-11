@@ -1,8 +1,12 @@
 ﻿name: Build, Check Style and Deploy
 
 on:
-  # For style checks only
+  # For style checks and tests
   push:
+    branches: [ main ]
+    paths-ignore:
+      - 'Documentation/**'
+  pull_request:
     branches: [ main ]
     paths-ignore:
       - 'Documentation/**'

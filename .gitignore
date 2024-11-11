@@ -54,7 +54,7 @@ cmake-build-*/
 *.iws
 
 # IntelliJ
-out/
+out/**
 
 # mpeltonen/sbt-idea plugin
 .idea_modules/
@@ -139,3 +139,28 @@ fabric.properties
 !.idea/runConfigurations
 
 # End of https://www.toptal.com/developers/gitignore/api/rider,webstorm+all
+
+/src/Zello.Api/bin/**
+/src/Zello.Application/bin/**
+/src/Zello.Domain/bin/**
+/src/Zello.Infrastructure/bin/**
+
+/src/Zello.Api/obj/**
+/src/Zello.Application/obj/**
+/src/Zello.Domain/obj/**
+/src/Zello.Infrastructure/obj/**
+
+/tests/Zello.Api.UnitTests/bin/**
+/tests/Zello.Application.UnitTests/bin/**
+/tests/Zello.Domain.UnitTests/bin/**
+/tests/Zello.Infrastructure.UnitTests/bin/**
+
+/tests/Zello.Api.UnitTests/obj/**
+/tests/Zello.Application.UnitTests/obj/**
+/tests/Zello.Domain.UnitTests/obj/**
+/tests/Zello.Infrastructure.UnitTests/obj/**
+
+/tests/Zello.IntegrationTests/bin/**
+/tests/Zello.IntegrationTests/obj/**
+
+/Documentation/.vscode/**

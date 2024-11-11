@@ -420,6 +420,9 @@ components:
           type: string
           format: uuid
           example: 123e4567-e89b-12d3-a456-426614174000
+        username:
+            type: string
+            example: johndoe
         email:
           type: string
           format: email
@@ -1023,10 +1026,15 @@ paths:
             schema:
               type: object
               required:
+                - username
                 - email
                 - password
                 - name
               properties:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 20
                 email:
                   type: string
                   format: email
@@ -1036,6 +1044,7 @@ paths:
                 name:
                   type: string
             example:
+              username: test-user
               email: jane.smith@example.com
               password: securePassword123
               name: Jane Smith
@@ -1775,6 +1784,7 @@ paths:
                   summary: Current user profile
                   value: {
                     "id": "123e4567-e89b-12d3-a456-426614174000",
+                    "username": "john.doe",
                     "email": "john.doe@example.com",
                     "name": "John Doe",
                     "role": "user",

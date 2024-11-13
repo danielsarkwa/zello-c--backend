@@ -53,8 +53,7 @@ public class AuthController : ControllerBase {
     [HttpPost("logout")]
     [ProducesResponseType(typeof(SimpleMessage), StatusCodes.Status200OK)]
     public IActionResult Logout() {
-        // Since we're using JWT, we don't need server-side logout
-        // The client should discard the token
+        // JWTs cannot themselves be invalidated, maybe blacklist tokens later?
         return Ok(new SimpleMessage { Message = "Logged out successfully" });
     }
 

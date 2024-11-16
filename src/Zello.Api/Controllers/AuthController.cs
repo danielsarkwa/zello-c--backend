@@ -35,16 +35,22 @@ public class AuthController : ControllerBase {
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public IActionResult Login([FromBody] LoginRequest request) {
-        // For demo, accept any non-empty credentials
+        // For testing, accept any non-empty credentials
         if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password)) {
             return BadRequest(new { Message = "Username and password are required" });
         }
+        // Later:
+        // 1. Verify the username/password against your database
+        // 2. Retrieve the user's access level from the database
+        var accessLevel = AccessLevel.Member; // This would come from your user database
 
-        var token = GenerateJwtToken(request.Username);
+        var token = GenerateJwtToken(request.Username, accessLevel);
         var response = new LoginResponse {
             Token = token,
             Expires = DateTime.Now.AddHours(1),
-            TokenType = "Bearer"
+            TokenType = "Bearer",
+            AccessLevel = accessLevel.ToString(),
+            Description = "not_set"
         };
 
         return Ok(response);
@@ -57,11 +63,12 @@ public class AuthController : ControllerBase {
         return Ok(new SimpleMessage { Message = "Logged out successfully" });
     }
 
-    private string GenerateJwtToken(string username) {
+    private string GenerateJwtToken(string username, AccessLevel accessLevel) {
         var claims = new[] {
             new Claim(JwtRegisteredClaimNames.Sub, username),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new Claim(ClaimTypes.Name, username)
+            new Claim(ClaimTypes.Name, username),
+            new Claim("AccessLevel", accessLevel.ToString())
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(

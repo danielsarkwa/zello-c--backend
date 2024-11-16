@@ -15,4 +15,8 @@ public record UserDto {
     [Required]
     [JsonProperty("name")]
     public required string Name { get; set; }
+
+    [Required]
+    [JsonProperty("accessLevel")]
+    public AccessLevel AccessLevel { get; set; } = AccessLevel.Guest;
 }

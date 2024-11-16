@@ -3,20 +3,28 @@ using Microsoft.OpenApi.Models;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Newtonsoft.Json;
+using Zello.Domain.Entities.Api.User;
 
-
+/// <summary>
+/// Main entry point for the Zello API application.
+/// Contains all service configuration and middleware setup.
+/// </summary>
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+#region Service Configuration
+
+// Basic Services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
+// Configure JSON Handling
 builder.Services.AddControllers()
     .AddNewtonsoftJson(options => {
         options.SerializerSettings.NullValueHandling = NullValueHandling.Ignore;
     });
 
-
+#region JWT Authentication Setup
+// Verify JWT Key availability
 var jwtKey = builder.Configuration["Jwt:Key"];
 Console.WriteLine($"JWT Key found: {!string.IsNullOrEmpty(jwtKey)}");
 
@@ -32,16 +40,42 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ??
-                                       "YourSuperSecretKeyHere"))
+                                     "YourSuperSecretKeyHere"))
         };
     });
+#endregion
 
-builder.Services.AddAuthorization();
+#region Authorization Policies
+builder.Services.AddAuthorization(options => {
+    void AddAccessLevelPolicy(string level, AccessLevel minimumLevel) {
+        options.AddPolicy($"MinimumAccessLevel_{level}", policy =>
+            policy.RequireAssertion(context => {
+                var accessLevelClaim = context.User.Claims
+                    .FirstOrDefault(c => c.Type == "AccessLevel");
 
-// Configure Swagger with JWT support and YAML
+                return accessLevelClaim != null &&
+                       Enum.TryParse<AccessLevel>(accessLevelClaim.Value, out var userLevel) &&
+                       userLevel >= minimumLevel;
+            }));
+    }
+
+    // Add policies for each access level
+    AddAccessLevelPolicy("Guest", AccessLevel.Guest);
+    AddAccessLevelPolicy("Member", AccessLevel.Member);
+    AddAccessLevelPolicy("Owner", AccessLevel.Owner);
+    AddAccessLevelPolicy("Admin", AccessLevel.Admin);
+});
+#endregion
+
+#region Swagger Configuration
 builder.Services.AddSwaggerGen(c => {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Zello API", Version = "v1" });
+    // Basic Swagger document info
+    c.SwaggerDoc("v1", new OpenApiInfo {
+        Title = "Zello API",
+        Version = "v1"
+    });
 
+    // Configure JWT authentication in Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme {
         Description = "JWT Authorization header using the Bearer scheme",
         Name = "Authorization",
@@ -50,6 +84,7 @@ builder.Services.AddSwaggerGen(c => {
         Scheme = "bearer"
     });
 
+    // Add global security requirement
     c.AddSecurityRequirement(new OpenApiSecurityRequirement {
         {
             new OpenApiSecurityScheme {
@@ -62,16 +97,22 @@ builder.Services.AddSwaggerGen(c => {
         }
     });
 });
+#endregion
 
+#endregion
+
+#region Application Building and Pipeline Configuration
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Development-specific middleware
 if (app.Environment.IsDevelopment()) {
+    // Configure Swagger
     app.UseSwagger(c => {
         c.SerializeAsV2 = false;
         c.RouteTemplate = "swagger/{documentName}/swagger.yaml";
     });
 
+    // Configure Swagger UI
     app.UseSwaggerUI(c => {
         c.SwaggerEndpoint("/swagger/v1/swagger.yaml", "Zello API v1");
         c.ConfigObject.DefaultModelRendering =
@@ -80,10 +121,14 @@ if (app.Environment.IsDevelopment()) {
     });
 }
 
-app.UseHttpsRedirection();
-app.UseAuthentication();
-app.UseAuthorization();
+// Configure the HTTP request pipeline
+app.UseHttpsRedirection();  // Redirect HTTP to HTTPS
+app.UseAuthentication();    // Enable authentication
+app.UseAuthorization();     // Enable authorization
 
+// Map controller endpoints
 app.MapControllers();
 
+// Start the application
 app.Run();
+#endregion

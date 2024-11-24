@@ -1,14 +1,13 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi.Models;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Newtonsoft.Json;
+using Zello.Application.Interfaces;
 using Zello.Domain.Entities.Api.User;
+using Zello.Infrastructure.Services;
 
-/// <summary>
-/// Main entry point for the Zello API application.
-/// Contains all service configuration and middleware setup.
-/// </summary>
 var builder = WebApplication.CreateBuilder(args);
 
 #region Service Configuration
@@ -17,6 +16,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
+// Add claim services
+builder.Services.AddScoped<IUserClaimsService, UserClaimsService>();
+builder.Services.AddScoped<IAccessLevelService, AccessLevelService>();
+builder.Services.AddScoped<IUserIdentityService, UserIdentityService>();
+builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+
 // Configure JSON Handling
 builder.Services.AddControllers()
     .AddNewtonsoftJson(options => {
@@ -24,6 +30,7 @@ builder.Services.AddControllers()
     });
 
 #region JWT Authentication Setup
+
 // Verify JWT Key availability
 var jwtKey = builder.Configuration["Jwt:Key"];
 Console.WriteLine($"JWT Key found: {!string.IsNullOrEmpty(jwtKey)}");
@@ -40,12 +47,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ??
-                                     "YourSuperSecretKeyHere"))
+                                       "YourSuperSecretKeyHere"))
         };
     });
+
 #endregion
 
 #region Authorization Policies
+
 builder.Services.AddAuthorization(options => {
     void AddAccessLevelPolicy(string level, AccessLevel minimumLevel) {
         options.AddPolicy($"MinimumAccessLevel_{level}", policy =>
@@ -65,9 +74,11 @@ builder.Services.AddAuthorization(options => {
     AddAccessLevelPolicy("Owner", AccessLevel.Owner);
     AddAccessLevelPolicy("Admin", AccessLevel.Admin);
 });
+
 #endregion
 
 #region Swagger Configuration
+
 builder.Services.AddSwaggerGen(c => {
     // Basic Swagger document info
     c.SwaggerDoc("v1", new OpenApiInfo {
@@ -97,11 +108,13 @@ builder.Services.AddSwaggerGen(c => {
         }
     });
 });
+
 #endregion
 
 #endregion
 
 #region Application Building and Pipeline Configuration
+
 var app = builder.Build();
 
 // Development-specific middleware
@@ -122,13 +135,14 @@ if (app.Environment.IsDevelopment()) {
 }
 
 // Configure the HTTP request pipeline
-app.UseHttpsRedirection();  // Redirect HTTP to HTTPS
-app.UseAuthentication();    // Enable authentication
-app.UseAuthorization();     // Enable authorization
+app.UseHttpsRedirection(); // Redirect HTTP to HTTPS
+app.UseAuthentication(); // Enable authentication
+app.UseAuthorization(); // Enable authorization
 
 // Map controller endpoints
 app.MapControllers();
 
 // Start the application
 app.Run();
+
 #endregion

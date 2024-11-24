@@ -3,7 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Zello.Application.Common.Models.Authentication;
+using Zello.Application.Features.Authentication.Models;
 using Zello.Domain.Entities.Api.Message;
 using Zello.Domain.Entities.Api.User;
 
@@ -21,7 +21,7 @@ public class AuthController : ControllerBase {
     [HttpPost("register")]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
-    public IActionResult Register([FromBody] ApiUser user) {
+    public IActionResult Register([FromBody] RegisterUserRequest userRequest) {
         if (!ModelState.IsValid) {
             return ValidationProblem(ModelState);
         }
@@ -40,7 +40,7 @@ public class AuthController : ControllerBase {
             return BadRequest(new { Message = "Username and password are required" });
         }
         // Later:
-        // 1. Verify the username/password against your database
+        // 1. Verify the username/password against the database
         // 2. Retrieve the user's access level from the database
         var accessLevel = AccessLevel.Member; // This would come from your user database
 

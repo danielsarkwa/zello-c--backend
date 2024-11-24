@@ -1,4 +1,11 @@
 ﻿<Project>
+    <PropertyGroup>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+        <EnableNETAnalyzers>true</EnableNETAnalyzers>
+        <AnalysisLevel>latest</AnalysisLevel>
+    </PropertyGroup>
+
     <ItemGroup>
         <PackageReference Include="Meziantou.Analyzer" Version="2.0.177">
             <PrivateAssets>all</PrivateAssets>

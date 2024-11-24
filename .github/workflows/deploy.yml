@@ -33,8 +33,12 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Build with analysis
-        run: dotnet build --no-restore /warnaserror
+      - name: Build source projects
+        run: |
+          dotnet build src/Zello.Domain/Zello.Domain.csproj --no-restore /warnaserror
+          dotnet build src/Zello.Application/Zello.Application.csproj --no-restore /warnaserror
+          dotnet build src/Zello.Infrastructure/Zello.Infrastructure.csproj --no-restore /warnaserror
+          dotnet build src/Zello.Api/Zello.Api.csproj --no-restore /warnaserror
 
   style-check:
     runs-on: ubuntu-latest

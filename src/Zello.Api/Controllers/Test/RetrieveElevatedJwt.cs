@@ -3,8 +3,9 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Zello.Application.Common.Models.Authentication;
+using Zello.Application.Features.Authentication.Models;
 using Zello.Domain.Entities.Api.User;
+using Zello.Infrastructure.TestingDataStorage;
 
 namespace Zello.Api.Controllers.Test;
 
@@ -88,11 +89,19 @@ public class RetrieveElevatedJwt : ControllerBase {
         GetTokenForLevel("Admin", request);
 
     private string GenerateJwtToken(string username, AccessLevel accessLevel) {
+        // Find the user in the TestUserCollection
+        var user = TestData.TestUserCollection.Values
+            .FirstOrDefault(u => u.Username == username);
+
+        // Use the user's actual access level if found, otherwise use the provided one
+        var effectiveAccessLevel = user?.AccessLevel ?? accessLevel;
+
         var claims = new[] {
             new Claim(JwtRegisteredClaimNames.Sub, username),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim(ClaimTypes.Name, username),
-            new Claim("AccessLevel", accessLevel.ToString())
+            new Claim("AccessLevel", effectiveAccessLevel.ToString()),
+            new Claim("UserId", user?.Id.ToString() ?? Guid.NewGuid().ToString())
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
@@ -112,6 +121,7 @@ public class RetrieveElevatedJwt : ControllerBase {
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
+
 
     private string GetAccessLevelDescription(AccessLevel level) => level switch {
         AccessLevel.Guest => "Basic access with limited privileges",

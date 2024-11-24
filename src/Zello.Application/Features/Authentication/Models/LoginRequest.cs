@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace Zello.Application.Common.Models.Authentication;
+﻿namespace Zello.Application.Features.Authentication.Models;
 
 public class LoginRequest {
     public required string Username { get; set; }

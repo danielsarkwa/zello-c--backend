@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Zello.Domain.Entities.Api.User;
 
-public sealed record ApiUser {
+public sealed record RegisterUserRequest {
     [Required]
     [StringLength(20, MinimumLength = 3)]
     [JsonProperty("username")]

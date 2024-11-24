@@ -1,9 +1,11 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿
+using System.ComponentModel.DataAnnotations;
 using Newtonsoft.Json;
+using Zello.Domain.Entities.Api.User;
 
-namespace Zello.Domain.Entities.Api.User;
+namespace Zello.Application.Features.Users.Models;
 
-public record UserDto {
+public record RegisterDto {
     [Required]
     [JsonProperty("username")]
     public required string Username { get; set; }
@@ -15,6 +17,11 @@ public record UserDto {
     [Required]
     [JsonProperty("name")]
     public required string Name { get; set; }
+
+    [Required]
+    [MinLength(6)]
+    [JsonProperty("password")]
+    public required string Password { get; set; }
 
     [Required]
     [JsonProperty("accessLevel")]

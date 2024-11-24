@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Zello.Api.Controllers;
 using Zello.Domain.Entities.Api.User;
-using Zello.Application.Common.Models.Authentication;
+using Zello.Application.Features.Authentication.Models;
 using Zello.Domain.Entities.Api.Message;
 
 namespace Zello.Api.UnitTests;
@@ -29,7 +29,7 @@ public class AuthControllerTests {
     [Fact]
     public void Register_ValidUser_Returns200OK() {
         // Arrange
-        var user = new ApiUser {
+        var user = new RegisterUserRequest {
             Username = "test",
             Email = "test@test.com",
             Password = "Test123!@#",

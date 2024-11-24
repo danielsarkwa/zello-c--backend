@@ -1,4 +1,4 @@
-﻿namespace Zello.Application.Common.Models.Authentication;
+﻿namespace Zello.Application.Features.Authentication.Models;
 
 /// <summary>
 /// Response model returned after successful authentication containing the JWT token and related information.

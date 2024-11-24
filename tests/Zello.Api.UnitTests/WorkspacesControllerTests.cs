@@ -1,6 +1,11 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
 using Zello.Api.Controllers;
+using Zello.Domain.Entities.Dto;
+using Zello.Application.Features.Workspaces;
+using Zello.Domain.Entities.Api.User;
 
 namespace Zello.Api.UnitTests;
 
@@ -9,121 +14,101 @@ public class WorkspacesControllerTests {
 
     public WorkspacesControllerTests() {
         _controller = new WorkspacesController();
+
+        // Setup the controller context with user claims
+        var userId = Guid.NewGuid();
+        var claims = new List<Claim> {
+            new Claim("UserId", userId.ToString())
+        };
+        var identity = new ClaimsIdentity(claims);
+        var principal = new ClaimsPrincipal(identity);
+
+        _controller.ControllerContext = new ControllerContext {
+            HttpContext = new DefaultHttpContext { User = principal }
+        };
     }
 
     [Fact]
-    public void CreateWorkspace_Returns200OK() {
+    public void CreateWorkspace_ValidInput_ReturnsCreatedResult() {
         // Arrange
-        var workspace = new { Name = "Test Workspace" };
+        var createDto = new CreateWorkspaceDto(
+            Name: "Test Workspace",
+            OwnerId: Guid.NewGuid(),
+            Description: "Test Description"
+        );
 
         // Act
-        var result = _controller.CreateWorkspace(workspace);
+        var actionResult = _controller.CreateWorkspace(createDto);
 
-        // Assert
-        Assert.IsType<ContentResult>(result);
-        var contentResult = (ContentResult)result;
-        Assert.Equal(200, contentResult.StatusCode);
-        Assert.Equal("application/json", contentResult.ContentType);
-        Assert.Contains("Workspace created", contentResult.Content);
+        // Debug information
+        Console.WriteLine($"Result type: {actionResult.Result?.GetType()}");
+
+        // Assert - first get the Result from ActionResult<T>
+        var result = Assert.IsType<CreatedAtActionResult>(actionResult.Result);
+        var returnValue = Assert.IsType<WorkspaceDto>(result.Value);
+        Assert.Equal(createDto.Name, returnValue.Name);
     }
 
     [Fact]
-    public void GetWorkspace_Returns200OK() {
+    public void CreateWorkspace_NullInput_ReturnsBadRequest() {
         // Act
-        var result = _controller.GetWorkspace("workspace-id");
+        var result = _controller.CreateWorkspace(null);
 
         // Assert
-        Assert.IsType<ContentResult>(result);
-        var contentResult = (ContentResult)result;
-        Assert.Equal(200, contentResult.StatusCode);
-        Assert.Equal("application/json", contentResult.ContentType);
-        Assert.Contains("Workspace retrieved", contentResult.Content);
+        Assert.IsType<BadRequestResult>(result.Result);
     }
 
     [Fact]
-    public void UpdateWorkspace_Returns200OK() {
+    public void GetAllWorkspaces_ReturnsOkResult() {
+        // Act
+        var result = _controller.GetAllWorkspaces();
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public void GetWorkspace_ReturnsNotFoundForNonexistentId() {
+        // Act
+        var result = _controller.GetWorkspace(Guid.NewGuid());
+
+        // Assert
+        Assert.IsType<NotFoundResult>(result.Result);
+    }
+
+    [Fact]
+    public void UpdateWorkspace_ReturnsNotFoundForNonexistentId() {
         // Arrange
-        var workspace = new { Name = "Updated Workspace" };
+        var updateDto = new UpdateWorkspaceDto { Name = "Updated Name" };
 
         // Act
-        var result = _controller.UpdateWorkspace("workspace-id", workspace);
+        var result = _controller.UpdateWorkspace(Guid.NewGuid(), updateDto);
 
         // Assert
-        Assert.IsType<ContentResult>(result);
-        var contentResult = (ContentResult)result;
-        Assert.Equal(200, contentResult.StatusCode);
-        Assert.Equal("application/json", contentResult.ContentType);
-        Assert.Contains("Workspace updated", contentResult.Content);
+        Assert.IsType<NotFoundResult>(result.Result);
     }
 
     [Fact]
-    public void DeleteWorkspace_Returns200OK() {
+    public void DeleteWorkspace_ReturnsNotFoundForNonexistentId() {
         // Act
-        var result = _controller.DeleteWorkspace("workspace-id");
+        var result = _controller.DeleteWorkspace(Guid.NewGuid());
 
         // Assert
-        Assert.IsType<ContentResult>(result);
-        var contentResult = (ContentResult)result;
-        Assert.Equal(200, contentResult.StatusCode);
-        Assert.Equal("application/json", contentResult.ContentType);
-        Assert.Contains("Workspace deleted", contentResult.Content);
+        Assert.IsType<NotFoundResult>(result);
     }
 
     [Fact]
-    public void GetWorkspaceProjects_Returns200OK() {
-        // Act
-        var result = _controller.GetWorkspaceProjects("workspace-id");
-
-        // Assert
-        Assert.IsType<ContentResult>(result);
-        var contentResult = (ContentResult)result;
-        Assert.Equal(200, contentResult.StatusCode);
-        Assert.Equal("application/json", contentResult.ContentType);
-        Assert.Contains("Workspace projects retrieved", contentResult.Content);
-    }
-
-    [Fact]
-    public void GetWorkspaceLabels_Returns200OK() {
-        // Act
-        var result = _controller.GetWorkspaceLabels("workspace-id");
-
-        // Assert
-        Assert.IsType<ContentResult>(result);
-        var contentResult = (ContentResult)result;
-        Assert.Equal(200, contentResult.StatusCode);
-        Assert.Equal("application/json", contentResult.ContentType);
-        Assert.Contains("Workspace labels retrieved", contentResult.Content);
-    }
-
-    [Fact]
-    public void AddWorkspaceMember_Returns200OK() {
+    public void AddWorkspaceMember_ReturnsNotFoundForNonexistentWorkspace() {
         // Arrange
-        var member = new { UserId = "user-id", Role = "member" };
+        var createMemberDto = new CreateWorkspaceMemberDto {
+            UserId = Guid.NewGuid(),
+            AccessLevel = AccessLevel.Member
+        };
 
         // Act
-        var result = _controller.AddWorkspaceMember("workspace-id", member);
+        var result = _controller.AddWorkspaceMember(Guid.NewGuid(), createMemberDto);
 
         // Assert
-        Assert.IsType<ContentResult>(result);
-        var contentResult = (ContentResult)result;
-        Assert.Equal(200, contentResult.StatusCode);
-        Assert.Equal("application/json", contentResult.ContentType);
-        Assert.Contains("Workspace member added", contentResult.Content);
-    }
-
-    [Fact]
-    public void CreateCustomRole_Returns200OK() {
-        // Arrange
-        var customRole = new { Name = "Custom Role" };
-
-        // Act
-        var result = _controller.CreateCustomRole("workspace-id", customRole);
-
-        // Assert
-        Assert.IsType<ContentResult>(result);
-        var contentResult = (ContentResult)result;
-        Assert.Equal(200, contentResult.StatusCode);
-        Assert.Equal("application/json", contentResult.ContentType);
-        Assert.Contains("Custom role created", contentResult.Content);
+        Assert.IsType<NotFoundObjectResult>(result.Result);
     }
 }

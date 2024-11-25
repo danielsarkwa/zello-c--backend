@@ -40,8 +40,6 @@ public class WorkspacesControllerTests {
         // Act
         var actionResult = _controller.CreateWorkspace(createDto);
 
-        // Debug information
-        Console.WriteLine($"Result type: {actionResult.Result?.GetType()}");
 
         // Assert - first get the Result from ActionResult<T>
         var result = Assert.IsType<CreatedAtActionResult>(actionResult.Result);

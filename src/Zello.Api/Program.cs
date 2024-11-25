@@ -6,6 +6,8 @@ using System.Text;
 using Newtonsoft.Json;
 using Zello.Application.Interfaces;
 using Zello.Domain.Entities.Api.User;
+using Zello.Infrastructure.Interfaces;
+using Zello.Infrastructure.Repositories;
 using Zello.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +24,8 @@ builder.Services.AddScoped<IAccessLevelService, AccessLevelService>();
 builder.Services.AddScoped<IUserIdentityService, UserIdentityService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<ITokenService, JwtTokenService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 
 // Configure JSON Handling
 builder.Services.AddControllers()

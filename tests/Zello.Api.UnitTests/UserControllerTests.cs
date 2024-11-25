@@ -128,9 +128,7 @@ public class UserControllerTests {
             Description = "Standard user access"
         };
 
-        _mockAuthService.Setup(x => x.AuthenticateUser(
-                It.IsAny<string>(),
-                It.IsAny<string>()))
+        _mockAuthService.Setup(x => x.AuthenticateUser(It.IsAny<TokenRequest>()))
             .Returns(loginResponse);
 
         // Act
@@ -150,9 +148,7 @@ public class UserControllerTests {
             Password = "invalid"
         };
 
-        _mockAuthService.Setup(x => x.AuthenticateUser(
-                It.IsAny<string>(),
-                It.IsAny<string>()))
+        _mockAuthService.Setup(x => x.AuthenticateUser(It.IsAny<TokenRequest>()))
             .Returns((LoginResponse?)null);
 
         // Act

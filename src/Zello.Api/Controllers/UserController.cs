@@ -38,7 +38,7 @@ public class UserController : ControllerBase {
             return BadRequest(ModelState);
         }
 
-        var loginResponse = _authService.AuthenticateUser(request.Username, request.Password);
+        var loginResponse = _authService.AuthenticateUser(request);
 
         if (loginResponse == null) {
             return Unauthorized(new { Message = "Invalid credentials" });
@@ -76,7 +76,7 @@ public class UserController : ControllerBase {
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public IActionResult RegisterUser([FromBody] RegisterDto registerDto) {
-        Console.WriteLine($"Starting user registration for username: {registerDto.Username}");
+
 
         if (!ModelState.IsValid) {
             return BadRequest(ModelState);
@@ -101,7 +101,7 @@ public class UserController : ControllerBase {
             CreatedDate = DateTime.UtcNow
         };
 
-        Console.WriteLine($"Adding user: {user.Username} with ID: {user.Id}");
+
 
         // Add user using the new method
         TestData.AddUser(user);
@@ -113,7 +113,7 @@ public class UserController : ControllerBase {
             return StatusCode(500, new { Message = "Failed to create user" });
         }
 
-        Console.WriteLine($"Successfully added user: {addedUser.Username} with ID: {addedUser.Id}");
+
 
         return CreatedAtAction(nameof(GetUserById), new { userId = user.Id }, user);
     }

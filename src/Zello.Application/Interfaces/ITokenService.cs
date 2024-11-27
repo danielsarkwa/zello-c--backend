@@ -3,5 +3,5 @@
 namespace Zello.Infrastructure.Interfaces;
 
 public interface ITokenService {
-    string GenerateToken(UserDto user);
+    string GenerateToken(User user);
 }

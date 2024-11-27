@@ -1,59 +1,74 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Zello.Application.Features.Comments.Models;
+using Zello.Domain.Entities;
 using Zello.Domain.Entities.Dto;
 using Zello.Domain.Entities.Requests;
-using Zello.Infrastructure.TestingDataStorage;
+using Zello.Infrastructure.Data;
 
 namespace Zello.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
 public sealed class CommentsController : ControllerBase {
+    private readonly ApplicationDbContext _context;
+
+    public CommentsController(ApplicationDbContext context) {
+        _context = context;
+    }
+
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<CommentDto>), StatusCodes.Status200OK)]
-    public IActionResult GetComments([FromQuery] Guid? taskId = null) {
-        var comments = TestData.TestCommentCollection.Values
-            .Where(c => !taskId.HasValue || c.TaskId == taskId)
+    [ProducesResponseType(typeof(IEnumerable<Comment>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetComments([FromQuery] Guid? taskId = null) {
+        var query = _context.Comments.AsQueryable();
+
+        if (taskId.HasValue)
+            query = query.Where(c => c.TaskId == taskId);
+
+        var comments = await query
             .OrderByDescending(c => c.CreatedDate)
-            .ToList();
+            .ToListAsync();
 
         return Ok(comments);
     }
 
     [HttpGet("{commentId}")]
-    [ProducesResponseType(typeof(CommentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Comment), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult GetCommentById(Guid commentId) {
-        if (!TestData.TestCommentCollection.TryGetValue(commentId, out var comment))
+    public async Task<IActionResult> GetCommentById(Guid commentId) {
+        var comment = await _context.Comments.FindAsync(commentId);
+
+        if (comment == null)
             return NotFound($"Comment with ID {commentId} not found");
 
         return Ok(comment);
     }
 
     [HttpPost]
-    [ProducesResponseType(typeof(CommentDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(Comment), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult CreateComment([FromBody] CreateCommentRequest request) {
+    public async Task<IActionResult> CreateComment([FromBody] CreateCommentRequest request) {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        if (request == null) {
+        if (request == null)
             return BadRequest("Request cannot be null");
-        }
 
-        if (string.IsNullOrWhiteSpace(request.Content)) {
+        if (string.IsNullOrWhiteSpace(request.Content))
             return BadRequest("Comment content cannot be empty");
-        }
 
-        if (!TestData.TestTaskCollection.ContainsKey(request.TaskId))
+        // Check if task exists
+        var taskExists = await _context.Tasks.AnyAsync(t => t.Id == request.TaskId);
+        if (!taskExists)
             return NotFound($"Task with ID {request.TaskId} not found");
 
-        // In a real app, we'd get the user ID from the authenticated user
-        var userId = TestData.TestUserCollection.First().Key;
+        // In a real app, you'd get the user ID from the authenticated user
+        // For now, I'll leave this TODO for you to implement based on your auth system
+        var userId = Guid.Empty; // TODO: Get from authenticated user
 
-        var comment = new CommentDto {
+        var comment = new Comment {
             Id = Guid.NewGuid(),
             TaskId = request.TaskId,
             UserId = userId,
@@ -61,7 +76,8 @@ public sealed class CommentsController : ControllerBase {
             CreatedDate = DateTime.UtcNow
         };
 
-        TestData.TestCommentCollection.Add(comment.Id, comment);
+        _context.Comments.Add(comment);
+        await _context.SaveChangesAsync();
 
         return CreatedAtAction(
             nameof(GetCommentById),
@@ -71,20 +87,20 @@ public sealed class CommentsController : ControllerBase {
     }
 
     [HttpPut("{commentId}")]
-    [ProducesResponseType(typeof(CommentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Comment), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult UpdateComment(Guid commentId, [FromBody] UpdateCommentRequest request) {
+    public async Task<IActionResult> UpdateComment(Guid commentId,
+        [FromBody] UpdateCommentRequest request) {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        if (!TestData.TestCommentCollection.TryGetValue(commentId, out var comment))
+        var comment = await _context.Comments.FindAsync(commentId);
+        if (comment == null)
             return NotFound($"Comment with ID {commentId} not found");
 
         comment.Content = request.Content;
-        comment.UpdatedDate = DateTime.UtcNow;
-
-        TestData.TestCommentCollection[commentId] = comment;
+        await _context.SaveChangesAsync();
 
         return Ok(comment);
     }
@@ -92,11 +108,13 @@ public sealed class CommentsController : ControllerBase {
     [HttpDelete("{commentId}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult DeleteComment(Guid commentId) {
-        if (!TestData.TestCommentCollection.ContainsKey(commentId))
+    public async Task<IActionResult> DeleteComment(Guid commentId) {
+        var comment = await _context.Comments.FindAsync(commentId);
+        if (comment == null)
             return NotFound($"Comment with ID {commentId} not found");
 
-        TestData.TestCommentCollection.Remove(commentId);
+        _context.Comments.Remove(comment);
+        await _context.SaveChangesAsync();
 
         return NoContent();
     }

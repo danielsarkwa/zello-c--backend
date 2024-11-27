@@ -22,7 +22,7 @@ export default defineConfig({
                 {
                     base: 'api',
                     label: 'My API',
-                    schema: './src/content/schemas/swagger.yaml',
+                    schema: './src/content/schemas/Zello.yaml',
                     slugPrefix: 'api/operations/',
                     operationIdMap: {
                         'boards.{board_id}.lists-post': 'create-board-list',

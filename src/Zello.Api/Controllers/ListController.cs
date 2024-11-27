@@ -1,198 +1,290 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Zello.Application.Dtos;
+using Zello.Domain.Entities;
 using Zello.Domain.Entities.Dto;
-using Zello.Infrastructure.TestingDataStorage;
+using Zello.Infrastructure.Data;
+using Zello.Infrastructure.Helpers;
 
 namespace Zello.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
 public sealed class ListController : ControllerBase {
+    private readonly ApplicationDbContext _context;
+
+    public ListController(ApplicationDbContext context) {
+        _context = context;
+    }
+
     [HttpGet("{listId}")]
-    [ProducesResponseType(typeof(ListDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ListReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult GetListById(Guid listId) {
-        if (!TestData.TestListCollection.TryGetValue(listId, out var list))
+        var list = _context.Lists.Find(listId);
+
+        if (list == null) {
             return NotFound($"List with ID {listId} not found");
+        }
 
         return Ok(list);
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<ListDto>), StatusCodes.Status200OK)]
-    public IActionResult GetAllLists([FromQuery] Guid? projectId = null) {
-        var lists = TestData.TestListCollection.Values
+    [ProducesResponseType(typeof(IEnumerable<ListReadDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAllLists([FromQuery] Guid? projectId = null) {
+        var lists = await _context.Lists
             .Where(l => !projectId.HasValue || l.ProjectId == projectId.Value)
-            .Select(l => {
-                var tasks = TestData.TestTaskCollection.Values
-                    .Where(t => t.ListId == l.Id)
-                    .Select(t => {
-                        // Ensure all navigation collections are initialized
-                        if (t.Assignees == null) t.Assignees = new List<TaskAssigneeDto>();
-                        if (t.Comments == null) t.Comments = new List<CommentDto>();
-                        return t;
-                    })
-                    .ToList();
-
-                l.Tasks = tasks;
-                return l;
-            })
+            .Include(l => l.Tasks)
+            .ThenInclude(t => t.Assignees)
+            .Include(l => l.Tasks)
+            .ThenInclude(t => t.Comments)
             .OrderBy(l => l.Position)
-            .ToList();
+            .ToListAsync();
 
         return Ok(lists);
     }
 
     [HttpPut("{listId}")]
-    [ProducesResponseType(typeof(ListDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ListReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult UpdateList(Guid listId, [FromBody] UpdateListDto updatedList) {
+    public async Task<IActionResult> UpdateList(Guid listId, [FromBody] ListCreateDto updateList) {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        if (!TestData.TestListCollection.ContainsKey(listId))
+        var existingList = await _context.Lists
+            .FirstOrDefaultAsync(l => l.Id == listId);
+
+        if (existingList == null)
             return NotFound($"List with ID {listId} not found");
 
-        var existingList = TestData.TestListCollection[listId];
-
         // Update only the modifiable properties
-        existingList.Name = updatedList.Name;
-        existingList.Position = updatedList.Position;
+        var updatedList = updateList.ToEntity();
 
-        TestData.TestListCollection[listId] = existingList;
+        _context.Lists.Update(updatedList);
+        await _context.SaveChangesAsync();
 
         return Ok(existingList);
     }
 
     [HttpPut("{listId}/position")]
-    [ProducesResponseType(typeof(ListDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ListReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult UpdateListPosition(Guid listId, [FromBody] int newPosition) {
-        if (!TestData.TestListCollection.TryGetValue(listId, out var list))
+    public async Task<IActionResult> UpdateListPosition(Guid listId, [FromBody] int newPosition) {
+        var list = await _context.Lists
+            .FirstOrDefaultAsync(l => l.Id == listId);
+
+        if (list == null)
             return NotFound($"List with ID {listId} not found");
 
-        var projectLists = TestData.TestListCollection.Values
+        var projectLists = await _context.Lists
             .Where(l => l.ProjectId == list.ProjectId)
             .OrderBy(l => l.Position)
-            .ToList();
+            .ToListAsync();
 
         // Validate position
         if (newPosition < 0 || newPosition >= projectLists.Count)
             return BadRequest("Invalid position");
 
-        // Update positions
-        var oldPosition = list.Position;
-        if (newPosition < oldPosition) {
-            // Moving left: increment positions of lists between new and old positions
-            foreach (var l in projectLists.Where(l =>
-                         l.Position >= newPosition && l.Position < oldPosition)) {
-                l.Position++;
-                TestData.TestListCollection[l.Id] = l;
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try {
+            var oldPosition = list.Position;
+            if (newPosition < oldPosition) {
+                // Moving left: increment positions of lists between new and old positions
+                var listsToUpdate = await _context.Lists
+                    .Where(l => l.ProjectId == list.ProjectId &&
+                                l.Position >= newPosition &&
+                                l.Position < oldPosition)
+                    .ToListAsync();
+
+                foreach (var l in listsToUpdate) {
+                    l.Position++;
+                }
+            } else if (newPosition > oldPosition) {
+                // Moving right: decrement positions of lists between old and new positions
+                var listsToUpdate = await _context.Lists
+                    .Where(l => l.ProjectId == list.ProjectId &&
+                                l.Position > oldPosition &&
+                                l.Position <= newPosition)
+                    .ToListAsync();
+
+                foreach (var l in listsToUpdate) {
+                    l.Position--;
+                }
             }
-        } else if (newPosition > oldPosition) {
-            // Moving right: decrement positions of lists between old and new positions
-            foreach (var l in projectLists.Where(l =>
-                         l.Position > oldPosition && l.Position <= newPosition)) {
-                l.Position--;
-                TestData.TestListCollection[l.Id] = l;
-            }
+
+            list.Position = newPosition;
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(list);
+        } catch (Exception) {
+            await transaction.RollbackAsync();
+            throw;
         }
-
-        list.Position = newPosition;
-        TestData.TestListCollection[listId] = list;
-
-        return Ok(list);
     }
 
-    [HttpDelete("{listId}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult DeleteList(Guid listId) {
-        if (!TestData.TestListCollection.ContainsKey(listId))
-            return NotFound($"List with ID {listId} not found");
+    // TODO: FIX THIS
+    // [HttpDelete("{listId}")]
+    // [ProducesResponseType(StatusCodes.Status204NoContent)]
+    // [ProducesResponseType(StatusCodes.Status404NotFound)]
+    // public IActionResult DeleteList(Guid listId) {
+    //   if (!TestData.TestListCollection.ContainsKey(listId))
+    //     return NotFound($"List with ID {listId} not found");
 
-        var list = TestData.TestListCollection[listId];
+    //   var list = TestData.TestListCollection[listId];
 
-        // Remove the list
-        TestData.TestListCollection.Remove(listId);
+    //   // Remove the list
+    //   TestData.TestListCollection.Remove(listId);
 
-        // Reorder remaining lists in the project
-        var projectLists = TestData.TestListCollection.Values
-            .Where(l => l.ProjectId == list.ProjectId)
-            .OrderBy(l => l.Position)
-            .ToList();
+    //   // Reorder remaining lists in the project
+    //   var projectLists = TestData.TestListCollection.Values
+    //       .Where(l => l.ProjectId == list.ProjectId)
+    //       .OrderBy(l => l.Position)
+    //       .ToList();
 
-        for (int i = 0; i < projectLists.Count; i++) {
-            projectLists[i].Position = i;
-            TestData.TestListCollection[projectLists[i].Id] = projectLists[i];
-        }
+    //   for (int i = 0; i < projectLists.Count; i++) {
+    //     projectLists[i].Position = i;
+    //     TestData.TestListCollection[projectLists[i].Id] = projectLists[i];
+    //   }
 
-        // Remove any tasks in this list
-        var tasksToRemove = TestData.TestTaskCollection.Values
-            .Where(t => t.ListId == listId)
-            .Select(t => t.Id)
-            .ToList();
+    //   // Remove any tasks in this list
+    //   var tasksToRemove = TestData.TestTaskCollection.Values
+    //       .Where(t => t.ListId == listId)
+    //       .Select(t => t.Id)
+    //       .ToList();
 
-        foreach (var taskId in tasksToRemove) {
-            TestData.TestTaskCollection.Remove(taskId);
-        }
+    //   foreach (var taskId in tasksToRemove) {
+    //     TestData.TestTaskCollection.Remove(taskId);
+    //   }
 
-        return NoContent();
-    }
+    //   return NoContent();
+    // }
 
     [HttpPost("{listId}/tasks")]
-    [ProducesResponseType(typeof(TaskDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(TaskReadDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult CreateTask(Guid listId, [FromBody] CreateTaskDto createTask) {
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> CreateTask(Guid listId, [FromBody] TaskCreateDto createTask) {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        if (!TestData.TestListCollection.TryGetValue(listId, out var list))
-            return NotFound($"List with ID {listId} not found");
+        // Get user ID from claims
+        Guid? userId = ClaimsHelper.GetUserId(User);
+        if (userId == null)
+            return BadRequest("User ID cannot be null.");
 
-        var task = new TaskDto {
-            Id = Guid.NewGuid(),
-            Name = createTask.Name,
-            Description = createTask.Description,
-            Status = createTask.Status,
-            Priority = createTask.Priority,
-            Deadline = createTask.Deadline,
-            ListId = listId,
-            ProjectId = list.ProjectId,
-            CreatedDate = DateTime.UtcNow,
-            Comments = new List<CommentDto>(),
-            Assignees = new List<TaskAssigneeDto>(),
-        };
+        try {
+            // Get the list including its project and workspace
+            var list = await _context.Lists
+                .Include(l => l.Project)
+                .ThenInclude(p => p.Workspace)
+                .ThenInclude(w => w.Members)
+                .FirstOrDefaultAsync(l => l.Id == listId);
 
-        TestData.TestTaskCollection.Add(task.Id, task);
+            if (list == null)
+                return NotFound($"List with ID {listId} not found");
 
-        return CreatedAtAction(
-            nameof(GetListById),
-            new { listId },
-            task
-        );
+            // Check if user is a workspace member
+            var isMember = list.Project.Workspace.Members
+                .Any(m => m.UserId == userId.Value);
+
+            if (!isMember)
+                return Forbid("User is not a member of the workspace");
+
+            // Create new task entity
+            var task = new WorkTask {
+                Id = Guid.NewGuid(),
+                Name = createTask.Name,
+                Status = createTask.Status,
+                Priority = createTask.Priority,
+                Deadline = createTask.Deadline,
+                ListId = listId,
+                ProjectId = list.ProjectId,
+                CreatedDate = DateTime.UtcNow
+            };
+
+            // Add to database
+            _context.Tasks.Add(task);
+            await _context.SaveChangesAsync();
+
+            // Map to DTO for response
+            var taskDto = new TaskReadDto {
+                Id = task.Id,
+                Name = task.Name,
+                Description = task.Description,
+                Status = task.Status,
+                Priority = task.Priority,
+                Deadline = task.Deadline,
+                ListId = task.ListId,
+                ProjectId = task.ProjectId,
+                CreatedDate = task.CreatedDate,
+                Comments = new List<CommentReadDto>(),
+                Assignees = new List<TaskAssigneeDto>()
+            };
+
+            return CreatedAtAction(
+                nameof(GetListById),
+                new { listId },
+                taskDto
+            );
+        } catch (Exception) {
+            // Log the exception
+            return StatusCode(500, "An error occurred while creating the task");
+        }
     }
 
     [HttpGet("{listId}/tasks")]
-    [ProducesResponseType(typeof(IEnumerable<TaskDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IEnumerable<TaskReadDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult GetListTasks(Guid listId) {
-        if (!TestData.TestListCollection.ContainsKey(listId))
-            return NotFound($"List with ID {listId} not found");
+    public async Task<IActionResult> GetListTasks(Guid listId) {
+        try {
+            // Check if list exists
+            var listExists = await _context.Lists
+                .AnyAsync(l => l.Id == listId);
 
-        var tasks = TestData.TestTaskCollection.Values
-            .Where(t => t.ListId == listId)
-            .Select(t => {
-                // Ensure all navigation collections are initialized
-                if (t.Assignees == null) t.Assignees = new List<TaskAssigneeDto>();
-                if (t.Comments == null) t.Comments = new List<CommentDto>();
-                return t;
-            })
-            .OrderBy(t => t.CreatedDate)
-            .ToList();
+            if (!listExists)
+                return NotFound($"List with ID {listId} not found");
 
-        return Ok(tasks);
+            // Get tasks with related data
+            var tasks = await _context.Tasks
+                .Where(t => t.ListId == listId)
+                .Include(t => t.Assignees)
+                .Include(t => t.Comments)
+                .OrderBy(t => t.CreatedDate)
+                .Select(t => new TaskReadDto {
+                    Id = t.Id,
+                    Name = t.Name,
+                    Description = t.Description,
+                    Status = t.Status,
+                    Priority = t.Priority,
+                    Deadline = t.Deadline,
+                    ListId = t.ListId,
+                    ProjectId = t.ProjectId,
+                    CreatedDate = t.CreatedDate,
+                    Assignees = t.Assignees.Select(a => new TaskAssigneeDto {
+                        Id = a.Id,
+                        TaskId = a.TaskId,
+                        UserId = a.UserId,
+                        AssignedDate = a.AssignedDate
+                    }).ToList(),
+                    Comments = t.Comments.Select(c => new CommentReadDto {
+                        Id = c.Id,
+                        Content = c.Content,
+                        CreatedDate = c.CreatedDate,
+                        TaskId = c.TaskId,
+                        UserId = c.UserId
+                    }).ToList()
+                })
+                .ToListAsync();
+
+            return Ok(tasks);
+        } catch (Exception) {
+            // Log the exception
+            return StatusCode(500, "An error occurred while retrieving tasks");
+        }
     }
 }

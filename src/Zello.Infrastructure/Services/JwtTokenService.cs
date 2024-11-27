@@ -15,7 +15,7 @@ public class JwtTokenService : ITokenService {
         _configuration = configuration;
     }
 
-    public string GenerateToken(UserDto user) {
+    public string GenerateToken(User user) {
         var claims = new[] {
             new Claim(JwtRegisteredClaimNames.Sub, user.Username),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),

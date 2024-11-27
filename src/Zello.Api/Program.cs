@@ -1,36 +1,65 @@
-using System.Security.Claims;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.OpenApi.Models;
-using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using Newtonsoft.Json;
 using Zello.Application.Interfaces;
+using Zello.Application.Services;
 using Zello.Domain.Entities.Api.User;
+using Zello.Infrastructure.Data;
 using Zello.Infrastructure.Interfaces;
 using Zello.Infrastructure.Repositories;
 using Zello.Infrastructure.Services;
+using Zello.Infrastructure.TestingDataStorage;
 
 var builder = WebApplication.CreateBuilder(args);
 
 #region Service Configuration
 
+// Database Context
+builder.Services.AddDbContext<ApplicationDbContext>(options => {
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
+        npgsqlOptions => {
+            npgsqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(30),
+                errorCodesToAdd: null);
+        });
+});
+
+// Register DbContext as DbContext for generic access
+builder.Services.AddScoped<DbContext>(provider => provider.GetService<ApplicationDbContext>()!);
+
+// Authentication related services
+builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
+builder.Services.AddScoped<ITokenService, JwtTokenService>();
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<IUserClaimsService, UserClaimsService>();
+builder.Services.AddScoped<IUserIdentityService, UserIdentityService>();
+
+// Repositories
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
+builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
+builder.Services.AddScoped<ITaskRepository, TaskRepository>();
+
+// Swagger Service
+builder.Services.AddScoped<ISwaggerService, SwaggerService>();
+
 // Basic Services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-
-// Add claim services
-builder.Services.AddScoped<IUserClaimsService, UserClaimsService>();
-builder.Services.AddScoped<IAccessLevelService, AccessLevelService>();
-builder.Services.AddScoped<IUserIdentityService, UserIdentityService>();
-builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
-builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
-builder.Services.AddScoped<ITokenService, JwtTokenService>();
-builder.Services.AddScoped<IUserRepository, UserRepository>();
 
 // Configure JSON Handling
 builder.Services.AddControllers()
     .AddNewtonsoftJson(options => {
         options.SerializerSettings.NullValueHandling = NullValueHandling.Ignore;
+        options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+        options.SerializerSettings.ContractResolver =
+            new Newtonsoft.Json.Serialization.DefaultContractResolver {
+                NamingStrategy = new Newtonsoft.Json.Serialization.SnakeCaseNamingStrategy()
+            };
     });
 
 #region JWT Authentication Setup
@@ -51,7 +80,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ??
-                                       "YourSuperSecretKeyHere"))
+                                       throw new InvalidOperationException(
+                                           "JWT Key not found in configuration")))
         };
     });
 
@@ -121,22 +151,72 @@ builder.Services.AddSwaggerGen(c => {
 
 var app = builder.Build();
 
+#region Database Initialization
+
+try {
+    using var scope = app.Services.CreateScope();
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+    bool dbExists = await context.Database.CanConnectAsync();
+    bool isNewDatabase = !dbExists;
+
+    // Create/ensure database exists
+    await context.Database.EnsureCreatedAsync();
+
+    // Only seed if this was a new database
+    if (isNewDatabase) {
+        Console.WriteLine("New database detected - seeding initial data...");
+        await DatabaseSeeder.SeedDatabase(context);
+        Console.WriteLine("Database seed completed successfully.");
+    } else {
+        Console.WriteLine("Existing database detected - skipping seed.");
+    }
+
+    // Additional database verification
+    var databaseName = context.Database.GetDbConnection().Database;
+    Console.WriteLine($"Successfully connected to database: {databaseName}");
+    Console.WriteLine("Database schema created/verified successfully.");
+} catch (Exception ex) {
+    Console.WriteLine($"An error occurred while initializing the database:");
+    Console.WriteLine($"Error: {ex.Message}");
+    Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+    throw;
+}
+
+#endregion
+
 // Development-specific middleware
 if (app.Environment.IsDevelopment()) {
-    // Configure Swagger
-    app.UseSwagger(c => {
-        c.SerializeAsV2 = false;
-        c.RouteTemplate = "swagger/{documentName}/swagger.yaml";
-    });
+    using (var scope = app.Services.CreateScope()) {
+        var swaggerService = scope.ServiceProvider.GetRequiredService<ISwaggerService>();
 
-    // Configure Swagger UI
-    app.UseSwaggerUI(c => {
-        c.SwaggerEndpoint("/swagger/v1/swagger.yaml", "Zello API v1");
-        c.ConfigObject.DefaultModelRendering =
-            Swashbuckle.AspNetCore.SwaggerUI.ModelRendering.Example;
-        c.ConfigObject.DefaultModelExpandDepth = 3;
-    });
+        var currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
+        Console.WriteLine($"Base Directory: {currentDirectory}");
+
+        var apiDirectory = Directory.GetParent(currentDirectory)?.Parent?.Parent?.Parent;
+        Console.WriteLine($"API Directory: {apiDirectory?.FullName}");
+
+        var srcDirectory = apiDirectory?.Parent;
+        Console.WriteLine($"Src Directory: {srcDirectory?.FullName}");
+
+        var solutionDirectory = srcDirectory?.Parent;
+        Console.WriteLine($"Solution Directory: {solutionDirectory?.FullName}");
+
+        var yamlPath = Path.Combine(
+            solutionDirectory?.FullName ??
+            throw new DirectoryNotFoundException("Could not determine solution directory"),
+            "Documentation",
+            "src",
+            "content",
+            "schemas",
+            "Zello.yaml"
+        );
+
+        Console.WriteLine($"Final YAML Path: {yamlPath}");
+        swaggerService.SaveSwaggerYaml(app, yamlPath);
+    }
 }
+
 
 // Configure the HTTP request pipeline
 app.UseHttpsRedirection(); // Redirect HTTP to HTTPS

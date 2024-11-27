@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿/*
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Zello.Api.Authorization;
 using Zello.Domain.Entities.Api.Message;
@@ -64,3 +65,4 @@ public class AccessElevatedJwt : ControllerBase {
     }
 }
 #endif
+*/

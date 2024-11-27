@@ -10,14 +10,11 @@ public record CreateWorkspaceDto(
     [Required]
     [MaxLength(100)]
     string Name = "",
-    [Required]
-    Guid OwnerId = default,
     [MaxLength(500)]
     string? Description = null) {
     public WorkspaceDto ToWorkspaceDto() {
         return new WorkspaceDto {
             Name = Name,
-            OwnerId = OwnerId,
             Description = Description,
             CreatedDate = DateTime.UtcNow,
             Projects = new List<ProjectDto>(),

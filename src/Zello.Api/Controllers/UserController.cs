@@ -1,69 +1,74 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Zello.Application.Features.Authentication.Models;
 using Zello.Application.Features.Users.Models;
 using Zello.Application.Interfaces;
+using Zello.Domain.Entities;
 using Zello.Domain.Entities.Api.User;
 using Zello.Domain.Entities.Dto;
+using Zello.Infrastructure.Data;
 using Zello.Infrastructure.Helpers;
-using Zello.Infrastructure.TestingDataStorage;
 
 namespace Zello.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
 public class UserController : ControllerBase {
+    private readonly ApplicationDbContext _context;
     private readonly IAuthenticationService _authService;
     private readonly IUserClaimsService _userClaimsService;
     private readonly IUserIdentityService _userIdentityService;
     private readonly IPasswordHasher _passwordHasher;
 
     public UserController(
+        ApplicationDbContext context,
         IAuthenticationService authService,
         IUserClaimsService userClaimsService,
         IUserIdentityService userIdentityService,
         IPasswordHasher passwordHasher) {
+        _context = context;
         _authService = authService;
         _userClaimsService = userClaimsService;
         _userIdentityService = userIdentityService;
         _passwordHasher = passwordHasher;
     }
 
-
     [HttpPost("login")]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public IActionResult Login([FromBody] TokenRequest request) { // Remove async
-        if (!ModelState.IsValid) {
+    public async Task<IActionResult> Login([FromBody] TokenRequest request) {
+        if (!ModelState.IsValid)
             return BadRequest(ModelState);
-        }
 
-        var loginResponse = _authService.AuthenticateUser(request);
+        var loginResponse = await _authService.AuthenticateUserAsync(request);
 
-        if (loginResponse == null) {
+        if (loginResponse == null)
             return Unauthorized(new { Message = "Invalid credentials" });
-        }
 
         return Ok(loginResponse);
     }
 
-
     [HttpGet("me")]
     [Authorize]
-    public IActionResult GetCurrentUser() {
+    public async Task<IActionResult> GetCurrentUser() {
         var userId = _userIdentityService.GetUserId(User);
-        var username = _userIdentityService.GetUsername(User);
+        if (userId == null)
+            return Unauthorized(new { Message = "User not authenticated" });
+
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Id == userId.Value);
+
+        if (user == null)
+            return NotFound(new { Message = "User not found" });
+
         var accessLevel = _userClaimsService.GetAccessLevel(User);
 
-        if (userId == null || string.IsNullOrEmpty(username)) {
-            return Unauthorized(new { Message = "User not authenticated" });
-        }
-
         var userDto = new UserDto(
-            id: userId.Value,
-            username: username,
-            email: username,
-            name: username
+            id: user.Id,
+            username: user.Username,
+            email: user.Email,
+            name: user.Name
         ) {
             AccessLevel = accessLevel ?? AccessLevel.Guest
         };
@@ -71,130 +76,177 @@ public class UserController : ControllerBase {
         return Ok(userDto);
     }
 
-
     [HttpPost("register")]
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public IActionResult RegisterUser([FromBody] RegisterDto registerDto) {
-
-
-        if (!ModelState.IsValid) {
+    public async Task<IActionResult> RegisterUser([FromBody] RegisterDto registerDto) {
+        if (!ModelState.IsValid)
             return BadRequest(ModelState);
-        }
 
         // Check if username already exists
-        var existingUser = TestData.FindUserByUsername(registerDto.Username);
-        if (existingUser != null) {
+        var existingUser = await _context.Users
+            .FirstOrDefaultAsync(u => u.Username == registerDto.Username);
+
+        if (existingUser != null)
             return BadRequest(new { Message = "Username already exists" });
-        }
+
+        var hashedPassword = _passwordHasher.HashPassword(registerDto.Password);
 
         // Create new user
-        var user = new UserDto(
-            id: Guid.NewGuid(),
-            username: registerDto.Username,
-            email: registerDto.Email,
-            name: registerDto.Name
-        ) {
+        var user = new User {
+            Id = Guid.NewGuid(),
+            Username = registerDto.Username,
+            Email = registerDto.Email,
+            Name = registerDto.Name,
             AccessLevel = AccessLevel.Guest,
-            PasswordHash = registerDto.Password, // Since we're not hashing yet
-            IsActive = true,
+            PasswordHash = hashedPassword,
             CreatedDate = DateTime.UtcNow
         };
 
+        try {
+            await _context.Users.AddAsync(user);
+            await _context.SaveChangesAsync();
 
+            var userDto = new UserDto(
+                id: user.Id,
+                username: user.Username,
+                email: user.Email,
+                name: user.Name
+            ) {
+                AccessLevel = user.AccessLevel,
+                CreatedDate = user.CreatedDate
+            };
 
-        // Add user using the new method
-        TestData.AddUser(user);
-
-        // Verify the user was added
-        var addedUser = TestData.FindUserByUsername(user.Username);
-        if (addedUser == null) {
-            Console.WriteLine("Failed to add user to collection");
-            return StatusCode(500, new { Message = "Failed to create user" });
+            return CreatedAtAction(nameof(GetUserById), new { userId = user.Id }, userDto);
+        } catch (Exception ex) {
+            return StatusCode(500, new { Message = "Failed to create user", Error = ex.Message });
         }
-
-
-
-        return CreatedAtAction(nameof(GetUserById), new { userId = user.Id }, user);
     }
 
     [HttpGet("{userId}")]
-    [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(User), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult GetUserById(Guid userId) {
-        if (!TestData.TestUserCollection.TryGetValue(userId, out var user)) {
-            return NotFound($"User with ID {userId} not found");
-        }
+    public async Task<IActionResult> GetUserById(Guid userId) {
+        var user = await _context.Users
+            .Include(u => u.WorkspaceMembers)
+            .Include(u => u.AssignedTasks)
+            .Include(u => u.Comments)
+            .FirstOrDefaultAsync(u => u.Id == userId);
 
-        return Ok(user);
+        if (user == null)
+            return NotFound($"User with ID {userId} not found");
+
+        // Create new User instance with all required properties
+        var userDto = new User {
+            Id = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            Name = user.Name,
+            PasswordHash = user.PasswordHash,
+            AccessLevel = user.AccessLevel,
+            CreatedDate = user.CreatedDate,
+            WorkspaceMembers = user.WorkspaceMembers?.ToList() ?? new List<WorkspaceMember>(),
+            AssignedTasks = user.AssignedTasks?.ToList() ?? new List<TaskAssignee>(),
+            Comments = user.Comments?.ToList() ?? new List<Comment>()
+        };
+
+        return Ok(userDto);
     }
 
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<UserDto>), StatusCodes.Status200OK)]
-    public IActionResult GetAllUsers() {
-        return Ok(TestData.TestUserCollection.Values);
+    public async Task<IActionResult> GetAllUsers() {
+        var users = await _context.Users
+            .Include(u => u.WorkspaceMembers)
+            .Include(u => u.AssignedTasks)
+            .Include(u => u.Comments)
+            .ToListAsync();
+
+        var userDtos = users.Select(user => new User {
+            Id = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            Name = user.Name,
+            PasswordHash = user.PasswordHash,
+            AccessLevel = user.AccessLevel,
+            CreatedDate = user.CreatedDate,
+            WorkspaceMembers = user.WorkspaceMembers?.ToList() ?? new List<WorkspaceMember>(),
+            AssignedTasks = user.AssignedTasks?.ToList() ?? new List<TaskAssignee>(),
+            Comments = user.Comments?.ToList() ?? new List<Comment>()
+        }).ToList();
+
+        return Ok(userDtos);
     }
 
     [HttpPut("{userId}")]
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult UpdateUser(Guid userId, [FromBody] RegisterDto updateDto) {
-        if (!ModelState.IsValid) {
+    public async Task<IActionResult> UpdateUser(Guid userId, [FromBody] RegisterDto updateDto) {
+        if (!ModelState.IsValid)
             return BadRequest(ModelState);
-        }
 
-        if (!TestData.TestUserCollection.ContainsKey(userId)) {
+        var user = await _context.Users
+            .Include(u => u.WorkspaceMembers)
+            .Include(u => u.AssignedTasks)
+            .Include(u => u.Comments)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null)
             return NotFound($"User with ID {userId} not found");
-        }
 
         // Check if new username conflicts with existing users
-        if (TestData.TestUserCollection.Values.Any(u =>
-                u.Id != userId && u.Username == updateDto.Username)) {
+        var existingUser = await _context.Users
+            .FirstOrDefaultAsync(u => u.Id != userId && u.Username == updateDto.Username);
+
+        if (existingUser != null)
             return BadRequest("Username already exists");
+
+        // Update user properties
+        user.Username = updateDto.Username;
+        user.Email = updateDto.Email;
+        user.Name = updateDto.Name;
+        user.AccessLevel = updateDto.AccessLevel;
+
+        try {
+            await _context.SaveChangesAsync();
+
+            var userDto = new User {
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                Name = user.Name,
+                PasswordHash = user.PasswordHash,
+                AccessLevel = user.AccessLevel,
+                CreatedDate = user.CreatedDate,
+                WorkspaceMembers = user.WorkspaceMembers?.ToList() ?? new List<WorkspaceMember>(),
+                AssignedTasks = user.AssignedTasks?.ToList() ?? new List<TaskAssignee>(),
+                Comments = user.Comments?.ToList() ?? new List<Comment>()
+            };
+
+            return Ok(userDto);
+        } catch (Exception ex) {
+            return StatusCode(500, new { Message = "Failed to update user", Error = ex.Message });
         }
-
-        var existingUser = TestData.TestUserCollection[userId];
-        var updatedUser = new UserDto(
-            id: userId,
-            username: updateDto.Username,
-            email: updateDto.Email,
-            name: updateDto.Name
-        ) {
-            AccessLevel = updateDto.AccessLevel, // Update access level
-            PasswordHash = existingUser.PasswordHash,
-            IsActive = existingUser.IsActive,
-            CreatedDate = existingUser.CreatedDate,
-            WorkspaceMembers = existingUser.WorkspaceMembers,
-            AssignedTasks = existingUser.AssignedTasks,
-            Comments = existingUser.Comments
-        };
-
-        TestData.TestUserCollection[userId] = updatedUser;
-
-        return Ok(updatedUser);
     }
 
     [HttpDelete("{userId}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult DeleteUser(Guid userId) {
-        if (!TestData.TestUserCollection.ContainsKey(userId)) {
+    public async Task<IActionResult> DeleteUser(Guid userId) {
+        var user = await _context.Users
+            .Include(u => u.WorkspaceMembers)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null)
             return NotFound($"User with ID {userId} not found");
+
+        try {
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        } catch (Exception ex) {
+            return StatusCode(500, new { Message = "Failed to delete user", Error = ex.Message });
         }
-
-        TestData.TestUserCollection.Remove(userId);
-
-        // Clean up related data
-        var workspaceMembersToRemove = TestData.TestWorkspaceMemberCollection.Values
-            .Where(wm => wm.UserId == userId)
-            .Select(wm => wm.Id)
-            .ToList();
-
-        foreach (var memberId in workspaceMembersToRemove) {
-            TestData.TestWorkspaceMemberCollection.Remove(memberId);
-        }
-
-        return NoContent();
     }
 }

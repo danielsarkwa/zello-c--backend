@@ -1,0 +1,3188 @@
+openapi: 3.0.1
+info:
+  title: Zello API
+  version: v1
+paths:
+  /api/v1/Auth/register:
+    post:
+      tags:
+        - Auth
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/RegisterUserRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterUserRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/RegisterUserRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/RegisterUserRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema: { }
+            application/json:
+              schema: { }
+            text/json:
+              schema: { }
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ValidationProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblemDetails'
+  /api/v1/Auth/login:
+    post:
+      tags:
+        - Auth
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/Auth/logout:
+    post:
+      tags:
+        - Auth
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/SimpleMessage'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleMessage'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/SimpleMessage'
+  /api/v1/Comments:
+    get:
+      tags:
+        - Comments
+      parameters:
+        - name: taskId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+    post:
+      tags:
+        - Comments
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/Comment'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/Comments/{commentId}':
+    get:
+      tags:
+        - Comments
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/Comment'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Comments
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/UpdateCommentRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCommentRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCommentRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/UpdateCommentRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/Comment'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Comments
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: No Content
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/List/{listId}':
+    get:
+      tags:
+        - List
+      parameters:
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ListReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ListReadDto'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - List
+      parameters:
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/ListCreateDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListCreateDto'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/ListCreateDto'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/ListCreateDto'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ListReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ListReadDto'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/List:
+    get:
+      tags:
+        - List
+      parameters:
+        - name: projectId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListReadDto'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListReadDto'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListReadDto'
+  '/api/v1/List/{listId}/position':
+    put:
+      tags:
+        - List
+      parameters:
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              type: integer
+              format: int32
+          application/json:
+            schema:
+              type: integer
+              format: int32
+          text/json:
+            schema:
+              type: integer
+              format: int32
+          application/*+json:
+            schema:
+              type: integer
+              format: int32
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ListReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ListReadDto'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/List/{listId}/tasks':
+    post:
+      tags:
+        - List
+      parameters:
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateDto'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateDto'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateDto'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/TaskReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/TaskReadDto'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    get:
+      tags:
+        - List
+      parameters:
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskReadDto'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskReadDto'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskReadDto'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/Project:
+    post:
+      tags:
+        - Project
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreateDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreateDto'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreateDto'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreateDto'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProjectReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReadDto'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    get:
+      tags:
+        - Project
+      parameters:
+        - name: workspaceId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+  '/api/v1/Project/{projectId}':
+    get:
+      tags:
+        - Project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProjectReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReadDto'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdateDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdateDto'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdateDto'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdateDto'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProjectReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReadDto'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: No Content
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/Project/members:
+    post:
+      tags:
+        - Project
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberCreateDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberCreateDto'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberCreateDto'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberCreateDto'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProjectMemberReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMemberReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMemberReadDto'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/Project/{projectId}/lists':
+    post:
+      tags:
+        - Project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/ListCreateDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListCreateDto'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/ListCreateDto'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/ListCreateDto'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ListReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ListReadDto'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    get:
+      tags:
+        - Project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+  '/api/v1/Task/{taskId}':
+    get:
+      tags:
+        - Task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/TaskReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/TaskReadDto'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateDto'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateDto'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateDto'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/TaskReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/TaskReadDto'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: No Content
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/Task/{taskId}/move':
+    post:
+      tags:
+        - Task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/MoveTaskRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveTaskRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/MoveTaskRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/MoveTaskRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/TaskDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/TaskDto'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/Task/{taskId}/assignees':
+    post:
+      tags:
+        - Task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/AssignUserRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignUserRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/AssignUserRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/AssignUserRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/TaskAssigneeReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAssigneeReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/TaskAssigneeReadDto'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    get:
+      tags:
+        - Task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskAssigneeReadDto'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskAssigneeReadDto'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskAssigneeReadDto'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/Task/{taskId}/assignees/{userId}':
+    delete:
+      tags:
+        - Task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: No Content
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/Task/{taskId}/comments':
+    get:
+      tags:
+        - Task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommentReadDto'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommentReadDto'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommentReadDto'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/AddCommentRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCommentRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/AddCommentRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/AddCommentRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/CommentReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/CommentReadDto'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/User/login:
+    post:
+      tags:
+        - User
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/User/me:
+    get:
+      tags:
+        - User
+      responses:
+        '200':
+          description: OK
+  /api/v1/User/register:
+    post:
+      tags:
+        - User
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/User/{userId}':
+    get:
+      tags:
+        - User
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/User'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - User
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - User
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: No Content
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/User:
+    get:
+      tags:
+        - User
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserDto'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserDto'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserDto'
+  '/api/v1/system/UsersSystem/{userId}/role':
+    put:
+      tags:
+        - UsersSystem
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema: { }
+          application/json:
+            schema: { }
+          text/json:
+            schema: { }
+          application/*+json:
+            schema: { }
+      responses:
+        '200':
+          description: OK
+  /api/v1/Workspaces:
+    post:
+      tags:
+        - Workspaces
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceCreateDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceCreateDto'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceCreateDto'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceCreateDto'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    get:
+      tags:
+        - Workspaces
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceReadDto'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceReadDto'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceReadDto'
+  '/api/v1/Workspaces/{workspaceId}':
+    get:
+      tags:
+        - Workspaces
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Workspaces
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceUpdateDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceUpdateDto'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceUpdateDto'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceUpdateDto'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/WorkspaceReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceReadDto'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - Workspaces
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: No Content
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/Workspaces/{workspaceId}/projects':
+    get:
+      tags:
+        - Workspaces
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectReadDto'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectReadDto'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectReadDto'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/Workspaces/{workspaceId}/members':
+    get:
+      tags:
+        - Workspaces
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceMemberReadDto'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceMemberReadDto'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceMemberReadDto'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - Workspaces
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceMemberCreateDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceMemberCreateDto'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceMemberCreateDto'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceMemberCreateDto'
+      responses:
+        '201':
+          description: Created
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/WorkspaceMemberReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceMemberReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceMemberReadDto'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: Bad Request
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+components:
+  schemas:
+    AccessLevel:
+      enum:
+        - 0
+        - 10
+        - 20
+        - 30
+      type: integer
+      format: int32
+    AddCommentRequest:
+      type: object
+      properties:
+        content:
+          type: string
+          nullable: true
+      additionalProperties: false
+    AssignUserRequest:
+      required:
+        - userId
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+      additionalProperties: false
+    Comment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        content:
+          type: string
+          nullable: true
+        createdDate:
+          type: string
+          format: date-time
+        task:
+          $ref: '#/components/schemas/WorkTask'
+        user:
+          $ref: '#/components/schemas/User'
+      additionalProperties: false
+    CommentDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          format: uuid
+          nullable: true
+        userId:
+          type: string
+          format: uuid
+        content:
+          type: string
+          nullable: true
+        createdDate:
+          type: string
+          format: date-time
+        updatedDate:
+          type: string
+          format: date-time
+          nullable: true
+        task:
+          $ref: '#/components/schemas/TaskDto'
+        user:
+          $ref: '#/components/schemas/UserDto'
+      additionalProperties: false
+    CommentReadDto:
+      required:
+        - content
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        content:
+          type: string
+          nullable: true
+        createdDate:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/UserReadDto'
+      additionalProperties: false
+    CreateCommentRequest:
+      required:
+        - content
+      type: object
+      properties:
+        taskId:
+          type: string
+          format: uuid
+        content:
+          maxLength: 500
+          minLength: 1
+          type: string
+      additionalProperties: false
+    CurrentTaskStatus:
+      enum:
+        - 0
+        - 1
+        - 2
+      type: integer
+      format: int32
+    ListCreateDto:
+      required:
+        - name
+        - position
+        - projectId
+      type: object
+      properties:
+        projectId:
+          pattern: '^[{(]?[0-9A-Fa-f]{8}[-]?[0-9A-Fa-f]{4}[-]?[0-9A-Fa-f]{4}[-]?[0-9A-Fa-f]{4}[-]?[0-9A-Fa-f]{12}[)}]?$'
+          type: string
+          format: uuid
+        name:
+          maxLength: 20
+          minLength: 3
+          type: string
+        position:
+          maximum: 2147483647
+          minimum: 0
+          type: integer
+          format: int32
+      additionalProperties: false
+    ListDto:
+      required:
+        - name
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        name:
+          maxLength: 100
+          minLength: 1
+          type: string
+        position:
+          type: integer
+          format: int32
+        createdDate:
+          type: string
+          format: date-time
+        project:
+          $ref: '#/components/schemas/ProjectDto'
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskDto'
+          nullable: true
+      additionalProperties: false
+    ListReadDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        position:
+          type: integer
+          format: int32
+        createdDate:
+          type: string
+          format: date-time
+      additionalProperties: false
+    LoginRequest:
+      required:
+        - password
+        - username
+      type: object
+      properties:
+        username:
+          type: string
+          nullable: true
+        password:
+          type: string
+          nullable: true
+      additionalProperties: false
+    LoginResponse:
+      required:
+        - accessLevel
+        - description
+        - token
+        - tokenType
+      type: object
+      properties:
+        token:
+          type: string
+          nullable: true
+        expires:
+          type: string
+          format: date-time
+        tokenType:
+          type: string
+          nullable: true
+        accessLevel:
+          type: string
+          nullable: true
+        numericLevel:
+          type: integer
+          format: int32
+        description:
+          type: string
+          nullable: true
+      additionalProperties: false
+    MoveTaskRequest:
+      type: object
+      properties:
+        targetListId:
+          type: string
+          format: uuid
+      additionalProperties: false
+    Priority:
+      enum:
+        - 0
+        - 1
+        - 2
+        - 3
+      type: integer
+      format: int32
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        status:
+          type: integer
+          format: int32
+          nullable: true
+        detail:
+          type: string
+          nullable: true
+        instance:
+          type: string
+          nullable: true
+      additionalProperties: { }
+    Project:
+      required:
+        - name
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        name:
+          minLength: 1
+          type: string
+        description:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+        createdDate:
+          type: string
+          format: date-time
+        workspace:
+          $ref: '#/components/schemas/Workspace'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectMember'
+          nullable: true
+        lists:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskList'
+          nullable: true
+      additionalProperties: false
+    ProjectCreateDto:
+      required:
+        - name
+        - status
+        - workspaceId
+      type: object
+      properties:
+        name:
+          maxLength: 20
+          minLength: 3
+          type: string
+        description:
+          maxLength: 100
+          minLength: 3
+          type: string
+          nullable: true
+        workspaceId:
+          type: string
+          format: uuid
+        startDate:
+          type: string
+          format: date
+          nullable: true
+        endDate:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+      additionalProperties: false
+    ProjectDto:
+      required:
+        - name
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        name:
+          maxLength: 100
+          minLength: 1
+          type: string
+        description:
+          maxLength: 500
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+        createdDate:
+          type: string
+          format: date-time
+        updatedDate:
+          type: string
+          format: date-time
+          nullable: true
+        workspace:
+          $ref: '#/components/schemas/WorkspaceDto'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectMemberDto'
+          nullable: true
+        lists:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListDto'
+          nullable: true
+      additionalProperties: false
+    ProjectMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        workspaceMemberId:
+          type: string
+          format: uuid
+        accessLevel:
+          $ref: '#/components/schemas/AccessLevel'
+        createdDate:
+          type: string
+          format: date-time
+        project:
+          $ref: '#/components/schemas/Project'
+        workspaceMember:
+          $ref: '#/components/schemas/WorkspaceMember'
+      additionalProperties: false
+    ProjectMemberCreateDto:
+      type: object
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        workspaceMemberId:
+          type: string
+          format: uuid
+        accessLevel:
+          $ref: '#/components/schemas/AccessLevel'
+      additionalProperties: false
+    ProjectMemberDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        workspaceMemberId:
+          type: string
+          format: uuid
+        accessLevel:
+          $ref: '#/components/schemas/AccessLevel'
+        createdDate:
+          type: string
+          format: date-time
+        project:
+          $ref: '#/components/schemas/ProjectDto'
+        workspaceMember:
+          $ref: '#/components/schemas/WorkspaceMemberDto'
+      additionalProperties: false
+    ProjectMemberReadDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        workspaceMemberId:
+          type: string
+          format: uuid
+        accessLevel:
+          $ref: '#/components/schemas/AccessLevel'
+        createdDate:
+          type: string
+          format: date-time
+        workspaceMember:
+          $ref: '#/components/schemas/WorkspaceMemberReadDto'
+      additionalProperties: false
+    ProjectReadDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+        createdDate:
+          type: string
+          format: date-time
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectMemberReadDto'
+          nullable: true
+        lists:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListReadDto'
+          nullable: true
+      additionalProperties: false
+    ProjectStatus:
+      enum:
+        - 0
+        - 1
+        - 2
+      type: integer
+      format: int32
+    ProjectUpdateDto:
+      type: object
+      properties:
+        name:
+          maxLength: 20
+          minLength: 3
+          type: string
+          nullable: true
+        description:
+          maxLength: 100
+          minLength: 3
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+      additionalProperties: false
+    RegisterDto:
+      required:
+        - accessLevel
+        - email
+        - name
+        - password
+        - username
+      type: object
+      properties:
+        username:
+          minLength: 1
+          type: string
+        email:
+          minLength: 1
+          type: string
+        name:
+          minLength: 1
+          type: string
+        password:
+          minLength: 6
+          type: string
+        accessLevel:
+          $ref: '#/components/schemas/AccessLevel'
+      additionalProperties: false
+    RegisterUserRequest:
+      required:
+        - email
+        - name
+        - password
+        - username
+      type: object
+      properties:
+        username:
+          maxLength: 20
+          minLength: 3
+          type: string
+        email:
+          minLength: 1
+          type: string
+          format: email
+        password:
+          maxLength: 2147483647
+          minLength: 8
+          type: string
+        name:
+          minLength: 1
+          type: string
+      additionalProperties: false
+    SimpleMessage:
+      required:
+        - message
+      type: object
+      properties:
+        message:
+          minLength: 1
+          type: string
+        reason:
+          type: string
+          nullable: true
+      additionalProperties: false
+    TaskAssignee:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        assignedDate:
+          type: string
+          format: date-time
+        task:
+          $ref: '#/components/schemas/WorkTask'
+        user:
+          $ref: '#/components/schemas/User'
+      additionalProperties: false
+    TaskAssigneeDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        assignedDate:
+          type: string
+          format: date-time
+        task:
+          $ref: '#/components/schemas/TaskDto'
+        user:
+          $ref: '#/components/schemas/UserDto'
+      additionalProperties: false
+    TaskAssigneeReadDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        taskId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        assignedDate:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/UserReadDto'
+      additionalProperties: false
+    TaskCreateDto:
+      required:
+        - listId
+        - name
+        - projectId
+        - status
+      type: object
+      properties:
+        name:
+          maxLength: 100
+          minLength: 3
+          type: string
+        description:
+          maxLength: 100
+          minLength: 3
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/CurrentTaskStatus'
+        priority:
+          $ref: '#/components/schemas/Priority'
+        deadline:
+          type: string
+          format: date-time
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+        listId:
+          type: string
+          format: uuid
+      additionalProperties: false
+    TaskDto:
+      required:
+        - name
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          maxLength: 100
+          minLength: 1
+          type: string
+        description:
+          maxLength: 500
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/CurrentTaskStatus'
+        priority:
+          $ref: '#/components/schemas/Priority'
+        deadline:
+          type: string
+          format: date-time
+          nullable: true
+        createdDate:
+          type: string
+          format: date-time
+        updatedDate:
+          type: string
+          format: date-time
+          nullable: true
+        projectId:
+          type: string
+          format: uuid
+        listId:
+          type: string
+          format: uuid
+        project:
+          $ref: '#/components/schemas/ProjectDto'
+        list:
+          $ref: '#/components/schemas/ListDto'
+        assignees:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskAssigneeDto'
+          nullable: true
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommentDto'
+          nullable: true
+      additionalProperties: false
+    TaskList:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        position:
+          type: integer
+          format: int32
+        createdDate:
+          type: string
+          format: date-time
+        project:
+          $ref: '#/components/schemas/Project'
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkTask'
+          nullable: true
+      additionalProperties: false
+    TaskReadDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        listId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        priority:
+          $ref: '#/components/schemas/Priority'
+        status:
+          $ref: '#/components/schemas/CurrentTaskStatus'
+        deadline:
+          type: string
+          format: date-time
+          nullable: true
+        createdDate:
+          type: string
+          format: date-time
+        assignees:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskAssigneeDto'
+          nullable: true
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommentReadDto'
+          nullable: true
+        list:
+          $ref: '#/components/schemas/ListReadDto'
+        project:
+          $ref: '#/components/schemas/ProjectReadDto'
+      additionalProperties: false
+    TokenRequest:
+      required:
+        - password
+        - username
+      type: object
+      properties:
+        username:
+          minLength: 1
+          type: string
+        password:
+          minLength: 1
+          type: string
+      additionalProperties: false
+    UpdateCommentRequest:
+      required:
+        - content
+      type: object
+      properties:
+        content:
+          maxLength: 500
+          minLength: 1
+          type: string
+      additionalProperties: false
+    User:
+      required:
+        - email
+        - name
+        - passwordHash
+        - username
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        passwordHash:
+          type: string
+          nullable: true
+        createdDate:
+          type: string
+          format: date-time
+        accessLevel:
+          $ref: '#/components/schemas/AccessLevel'
+        workspaceMembers:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceMember'
+          nullable: true
+        assignedTasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskAssignee'
+          nullable: true
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+          nullable: true
+      additionalProperties: false
+    UserDto:
+      required:
+        - accessLevel
+        - email
+        - name
+        - passwordHash
+        - username
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          maxLength: 50
+          minLength: 1
+          type: string
+        name:
+          maxLength: 100
+          minLength: 1
+          type: string
+        email:
+          maxLength: 100
+          minLength: 1
+          type: string
+          format: email
+        passwordHash:
+          minLength: 1
+          type: string
+        isActive:
+          type: boolean
+        createdDate:
+          type: string
+          format: date-time
+        workspaceMembers:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceMemberDto'
+          nullable: true
+        assignedTasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskAssigneeDto'
+          nullable: true
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommentDto'
+          nullable: true
+        accessLevel:
+          $ref: '#/components/schemas/AccessLevel'
+      additionalProperties: false
+    UserReadDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        createdDate:
+          type: string
+          format: date-time
+        accessLevel:
+          $ref: '#/components/schemas/AccessLevel'
+      additionalProperties: false
+    ValidationProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        status:
+          type: integer
+          format: int32
+          nullable: true
+        detail:
+          type: string
+          nullable: true
+        instance:
+          type: string
+          nullable: true
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          nullable: true
+      additionalProperties: { }
+    WorkTask:
+      required:
+        - name
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          minLength: 1
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/CurrentTaskStatus'
+        priority:
+          $ref: '#/components/schemas/Priority'
+        deadline:
+          type: string
+          format: date-time
+          nullable: true
+        createdDate:
+          type: string
+          format: date-time
+        projectId:
+          type: string
+          format: uuid
+        listId:
+          type: string
+          format: uuid
+        project:
+          $ref: '#/components/schemas/Project'
+        list:
+          $ref: '#/components/schemas/TaskList'
+        assignees:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskAssignee'
+          nullable: true
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+          nullable: true
+      additionalProperties: false
+    Workspace:
+      required:
+        - name
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        ownerId:
+          type: string
+          format: uuid
+        createdDate:
+          type: string
+          format: date-time
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+          nullable: true
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceMember'
+          nullable: true
+      additionalProperties: false
+    WorkspaceCreateDto:
+      required:
+        - name
+      type: object
+      properties:
+        name:
+          maxLength: 20
+          minLength: 3
+          type: string
+      additionalProperties: false
+    WorkspaceDto:
+      required:
+        - name
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          maxLength: 100
+          minLength: 1
+          type: string
+        description:
+          maxLength: 500
+          type: string
+          nullable: true
+        ownerId:
+          type: string
+          format: uuid
+        createdDate:
+          type: string
+          format: date-time
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectDto'
+          nullable: true
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceMemberDto'
+          nullable: true
+      additionalProperties: false
+    WorkspaceMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        accessLevel:
+          $ref: '#/components/schemas/AccessLevel'
+        createdDate:
+          type: string
+          format: date-time
+        workspace:
+          $ref: '#/components/schemas/Workspace'
+        user:
+          $ref: '#/components/schemas/User'
+      additionalProperties: false
+    WorkspaceMemberCreateDto:
+      required:
+        - accessLevel
+        - userId
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        accessLevel:
+          $ref: '#/components/schemas/AccessLevel'
+      additionalProperties: false
+    WorkspaceMemberDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        accessLevel:
+          $ref: '#/components/schemas/AccessLevel'
+        createdDate:
+          type: string
+          format: date-time
+        workspace:
+          $ref: '#/components/schemas/WorkspaceDto'
+        user:
+          $ref: '#/components/schemas/UserDto'
+      additionalProperties: false
+    WorkspaceMemberReadDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        accessLevel:
+          $ref: '#/components/schemas/AccessLevel'
+        createdDate:
+          type: string
+          format: date-time
+      additionalProperties: false
+    WorkspaceReadDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        ownerId:
+          type: string
+          format: uuid
+        createdDate:
+          type: string
+          format: date-time
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectReadDto'
+          nullable: true
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceMemberReadDto'
+          nullable: true
+      additionalProperties: false
+    WorkspaceUpdateDto:
+      required:
+        - name
+      type: object
+      properties:
+        name:
+          maxLength: 20
+          minLength: 3
+          type: string
+      additionalProperties: false
+  securitySchemes:
+    Bearer:
+      type: http
+      description: JWT Authorization header using the Bearer scheme
+      scheme: bearer
+security:
+  - Bearer: [ ]

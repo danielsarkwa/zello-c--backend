@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Zello.Application.Features.Workspaces;
-using Zello.Infrastructure.TestingDataStorage;
-using Zello.Domain.Entities.Dto;
+using Microsoft.EntityFrameworkCore;
+using Zello.Application.Dtos;
+using Zello.Domain.Entities;
+using Zello.Domain.Entities.Api.User;
+using Zello.Infrastructure.Data;
 using Zello.Infrastructure.Helpers;
 
 namespace Zello.Api.Controllers;
@@ -9,15 +11,18 @@ namespace Zello.Api.Controllers;
 [ApiController]
 [Route("api/v1/[controller]")]
 public sealed class WorkspacesController : ControllerBase {
+    private readonly ApplicationDbContext _context;
+
+    public WorkspacesController(ApplicationDbContext context) {
+        _context = context;
+    }
+
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public ActionResult<WorkspaceDto>
-        CreateWorkspace([FromBody] CreateWorkspaceDto createWorkspace) {
+    public async Task<ActionResult<Workspace>> CreateWorkspace(
+        [FromBody] WorkspaceCreateDto createWorkspace) {
         if (createWorkspace == null) return BadRequest();
-
-        var workspace = createWorkspace.ToWorkspaceDto();
-        workspace.Id = Guid.NewGuid();
 
         try {
             Guid? userId = ClaimsHelper.GetUserId(User);
@@ -25,32 +30,143 @@ public sealed class WorkspacesController : ControllerBase {
                 return BadRequest("User ID cannot be null.");
             }
 
-            workspace.OwnerId = userId.Value;
+            // Verify user exists
+            var user = await _context.Users.FindAsync(userId.Value);
+            if (user == null) {
+                return BadRequest("User not found");
+            }
+
+            // Create workspace entity
+            var workspace = createWorkspace.ToEntity(userId.Value);
+
+            // Create and add the workspace owner as a member
+            var ownerMember = new WorkspaceMember {
+                Id = Guid.NewGuid(),
+                WorkspaceId = workspace.Id,
+                UserId = userId.Value,
+                AccessLevel = AccessLevel.Owner,
+                CreatedDate = DateTime.UtcNow
+            };
+
+            // Add owner as a member to workspace
+            workspace.Members = new List<WorkspaceMember> { ownerMember };
+
+            await _context.Workspaces.AddAsync(workspace);
+            await _context.SaveChangesAsync();
+
+            // Fetch fresh workspace to return, but without including the User navigation property
+            var savedWorkspace = await _context.Workspaces
+                .Include(w => w.Members)
+                .Include(w => w.Projects)
+                .Select(w => new {
+                    w.Id,
+                    w.Name,
+                    w.OwnerId,
+                    w.CreatedDate,
+                    Projects = w.Projects.Select(p => new {
+                        p.Id,
+                        p.Name,
+                        p.WorkspaceId,
+                        p.Status,
+                        p.CreatedDate
+                    }).ToList(),
+                    Members = w.Members.Select(m => new {
+                        m.Id,
+                        m.WorkspaceId,
+                        m.UserId,
+                        m.AccessLevel,
+                        m.CreatedDate
+                    }).ToList()
+                })
+                .FirstOrDefaultAsync(w => w.Id == workspace.Id);
+
+            if (savedWorkspace == null) {
+                return StatusCode(500, "Failed to retrieve created workspace");
+            }
+
+            return CreatedAtAction(
+                nameof(GetWorkspace),
+                new { workspaceId = workspace.Id },
+                savedWorkspace);
         } catch (Exception e) {
-            Console.WriteLine("Failed to get user ID from claims.", e);
+            Console.WriteLine("Failed to create workspace: " + e.Message);
             return StatusCode(500, "Internal server error.");
         }
-
-        // Ensure collections are initialized
-        workspace.Projects ??= new List<ProjectDto>();
-        workspace.Members ??= new List<WorkspaceMemberDto>();
-
-        TestData.TestWorkspaceCollection.Add(workspace.Id, workspace);
-
-        return CreatedAtAction(nameof(GetWorkspace), new { workspaceId = workspace.Id }, workspace);
     }
 
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<IEnumerable<WorkspaceDto>> GetAllWorkspaces() {
-        return Ok(TestData.TestWorkspaceCollection.Values);
+    public async Task<ActionResult<IEnumerable<WorkspaceReadDto>>> GetAllWorkspaces() {
+        var workspaces = await _context.Workspaces
+            .Include(w => w.Members)
+            .Include(w => w.Projects)
+            .ThenInclude(p => p.Members)
+            .Select(w => new {
+                w.Id,
+                w.Name,
+                w.OwnerId,
+                w.CreatedDate,
+                Members = w.Members,
+                Projects = w.Projects.Select(p => new {
+                    p.Id,
+                    p.WorkspaceId,
+                    p.Name,
+                    p.Description,
+                    p.StartDate,
+                    p.EndDate,
+                    p.Status,
+                    p.CreatedDate,
+                    Members = p.Members.Select(pm => new {
+                        pm.Id,
+                        pm.ProjectId,
+                        pm.WorkspaceMemberId,
+                        pm.AccessLevel,
+                        pm.CreatedDate,
+                        WorkspaceMember =
+                            w.Members.FirstOrDefault(wm => wm.Id == pm.WorkspaceMemberId)
+                    }).ToList()
+                }).ToList()
+            })
+            .ToListAsync();
+
+        var workspaceDtos = workspaces.Select(w => new WorkspaceReadDto {
+            Id = w.Id,
+            Name = w.Name,
+            OwnerId = w.OwnerId,
+            CreatedDate = w.CreatedDate,
+            Members = w.Members.Select(WorkspaceMemberReadDto.FromEntity),
+            Projects = w.Projects.Select(p => new ProjectReadDto {
+                Id = p.Id,
+                WorkspaceId = p.WorkspaceId,
+                Name = p.Name,
+                Description = p.Description,
+                StartDate = p.StartDate,
+                EndDate = p.EndDate,
+                Status = p.Status,
+                CreatedDate = p.CreatedDate,
+                Members = p.Members.Select(m => new ProjectMemberReadDto {
+                    Id = m.Id,
+                    ProjectId = m.ProjectId,
+                    WorkspaceMemberId = m.WorkspaceMemberId,
+                    AccessLevel = m.AccessLevel,
+                    CreatedDate = m.CreatedDate,
+                    WorkspaceMember = WorkspaceMemberReadDto.FromEntity(m.WorkspaceMember)
+                })
+            })
+        }).ToList();
+
+        return Ok(workspaceDtos);
     }
 
     [HttpGet("{workspaceId}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Workspace), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<WorkspaceDto> GetWorkspace(Guid workspaceId) {
-        if (!TestData.TestWorkspaceCollection.TryGetValue(workspaceId, out var workspace))
+    public async Task<ActionResult<WorkspaceReadDto>> GetWorkspace(Guid workspaceId) {
+        var workspace = await _context.Workspaces
+            .Include(w => w.Members)
+            .FirstOrDefaultAsync(w => w.Id == workspaceId);
+
+        if (workspace == null)
             return NotFound();
 
         return Ok(workspace);
@@ -60,30 +176,37 @@ public sealed class WorkspacesController : ControllerBase {
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public ActionResult<WorkspaceDto> UpdateWorkspace(Guid workspaceId,
-        [FromBody] UpdateWorkspaceDto updateWorkspace) {
-        // Check if workspace exists and get reference
-        if (!TestData.TestWorkspaceCollection.TryGetValue(workspaceId, out var existingWorkspace))
+    public async Task<ActionResult<WorkspaceReadDto>> UpdateWorkspace(Guid workspaceId,
+        [FromBody] WorkspaceUpdateDto workspaceUpdateDto) {
+        var existingWorkspace = await _context.Workspaces.FindAsync(workspaceId);
+        if (existingWorkspace == null)
             return NotFound();
 
-        updateWorkspace.UpdateWorkspace(existingWorkspace);
+        var updatedWorkspace = workspaceUpdateDto.ToEntity(existingWorkspace);
 
+        _context.Workspaces.Update(updatedWorkspace);
+        await _context.SaveChangesAsync();
 
-        return Ok(existingWorkspace);
+        return Ok(updatedWorkspace);
     }
 
     [HttpDelete("{workspaceId}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult DeleteWorkspace(Guid workspaceId) {
+    public async Task<IActionResult> DeleteWorkspace(Guid workspaceId) {
         try {
-            if (!TestData.TestWorkspaceCollection.ContainsKey(workspaceId))
+            var workspace = await _context.Workspaces
+                .Include(w => w.Members)
+                .Include(w => w.Projects)
+                .ThenInclude(p => p.Lists)
+                .ThenInclude(l => l.Tasks)
+                .FirstOrDefaultAsync(w => w.Id == workspaceId);
+
+            if (workspace == null)
                 return NotFound();
 
-            var deleted = TestData.DeleteWorkspace(workspaceId);
-            if (!deleted) {
-                return StatusCode(500, "Failed to delete workspace");
-            }
+            _context.Workspaces.Remove(workspace);
+            await _context.SaveChangesAsync();
 
             return NoContent();
         } catch (Exception ex) {
@@ -91,28 +214,33 @@ public sealed class WorkspacesController : ControllerBase {
         }
     }
 
-
     [HttpGet("{workspaceId}/projects")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<IEnumerable<ProjectDto>> GetWorkspaceProjects(Guid workspaceId) {
-        if (!TestData.TestWorkspaceCollection.ContainsKey(workspaceId))
+    public async Task<ActionResult<IEnumerable<ProjectReadDto>>>
+        GetWorkspaceProjects(Guid workspaceId) {
+        if (!await _context.Workspaces.AnyAsync(w => w.Id == workspaceId))
             return NotFound();
 
-        var projects = TestData.TestProjectCollection.Values
-            .Where(p => p.WorkspaceId == workspaceId);
+        var projects = await _context.Projects
+            .Where(p => p.WorkspaceId == workspaceId)
+            .ToListAsync();
+
         return Ok(projects);
     }
 
     [HttpGet("{workspaceId}/members")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<IEnumerable<WorkspaceMemberDto>> GetWorkspaceMembers(Guid workspaceId) {
-        if (!TestData.TestWorkspaceCollection.ContainsKey(workspaceId))
+    public async Task<ActionResult<IEnumerable<WorkspaceMemberReadDto>>> GetWorkspaceMembers(
+        Guid workspaceId) {
+        if (!await _context.Workspaces.AnyAsync(w => w.Id == workspaceId))
             return NotFound();
 
-        var members = TestData.TestWorkspaceMemberCollection.Values
-            .Where(m => m.WorkspaceId == workspaceId);
+        var members = await _context.WorkspaceMembers
+            .Where(m => m.WorkspaceId == workspaceId)
+            .ToListAsync();
+
         return Ok(members);
     }
 
@@ -120,26 +248,24 @@ public sealed class WorkspacesController : ControllerBase {
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public ActionResult<WorkspaceMemberDto> AddWorkspaceMember(Guid workspaceId,
-        [FromBody] CreateWorkspaceMemberDto createMember) {
-        // Check if workspace exists
-        if (!TestData.TestWorkspaceCollection.ContainsKey(workspaceId))
+    public async Task<ActionResult<WorkspaceMemberReadDto>> AddWorkspaceMember(Guid workspaceId,
+        [FromBody] WorkspaceMemberCreateDto createMember) {
+        if (!await _context.Workspaces.AnyAsync(w => w.Id == workspaceId))
             return NotFound("Workspace not found");
 
-        // Check if user exists
-        if (!TestData.TestUserCollection.ContainsKey(createMember.UserId))
+        if (!await _context.Users.AnyAsync(u => u.Id == createMember.UserId))
             return NotFound("User not found");
 
-        // Create new workspace member
-        var member = new WorkspaceMemberDto {
+        var member = new WorkspaceMember {
             Id = Guid.NewGuid(),
             WorkspaceId = workspaceId,
             UserId = createMember.UserId,
-            AccessLevel = createMember.AccessLevel, // Set the access level
+            AccessLevel = AccessLevel.Member,
             CreatedDate = DateTime.UtcNow
         };
 
-        TestData.TestWorkspaceMemberCollection.Add(member.Id, member);
+        await _context.WorkspaceMembers.AddAsync(member);
+        await _context.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetWorkspaceMembers), new { workspaceId }, member);
     }

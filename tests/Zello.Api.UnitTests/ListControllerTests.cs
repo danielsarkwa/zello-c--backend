@@ -1,196 +1,210 @@
-﻿// using FluentAssertions;
-// using Microsoft.AspNetCore.Mvc;
-// using Zello.Api.Controllers;
-// using Zello.Domain.Entities.Dto;
-// using Zello.Domain.Enums;
-// using Zello.Infrastructure.TestingDataStorage;
-//
-// namespace Zello.Api.UnitTests;
-//
-// public class ListControllerTests {
-//     private readonly ListController _controller;
-//
-//     public ListControllerTests() {
-//         _controller = new ListController();
-//         TestData.ResetTestData();
-//     }
-//
-//     [Fact]
-//     public void GetAllLists_ReturnsOkResult() {
-//         // Act
-//         var result = _controller.GetAllLists();
-//
-//         // Assert
-//         result.Should().BeOfType<OkObjectResult>();
-//         var okResult = result as OkObjectResult;
-//         okResult!.Value.Should().BeAssignableTo<IEnumerable<ListDto>>();
-//     }
-//
-//     [Fact]
-//     public void GetAllLists_WithProjectFilter_ReturnsFilteredLists() {
-//         // Arrange
-//         var projectId = TestData.TestListCollection.First().Value.ProjectId;
-//
-//         // Act
-//         var result = _controller.GetAllLists(projectId) as OkObjectResult;
-//
-//         // Assert
-//         result.Should().NotBeNull();
-//         var lists = result!.Value as IEnumerable<ListDto>;
-//         lists.Should().NotBeNull();
-//         lists!.All(l => l.ProjectId == projectId).Should().BeTrue();
-//     }
-//
-//     [Fact]
-//     public void GetListById_WithInvalidId_ReturnsNotFound() {
-//         // Act
-//         var result = _controller.GetListById(Guid.NewGuid());
-//
-//         // Assert
-//         result.Should().BeOfType<NotFoundObjectResult>();
-//     }
-//
-//     [Fact]
-//     public void GetListById_WithValidId_ReturnsCorrectList() {
-//         // Arrange
-//         var existingList = TestData.TestListCollection.First();
-//
-//         // Act
-//         var result = _controller.GetListById(existingList.Key) as OkObjectResult;
-//
-//         // Assert
-//         result.Should().NotBeNull();
-//         var list = result!.Value as ListDto;
-//         list.Should().NotBeNull();
-//         list!.Id.Should().Be(existingList.Key);
-//     }
-//
-//     [Fact]
-//     public void UpdateList_WithValidData_ReturnsUpdatedList() {
-//         // Arrange
-//         var existingList = TestData.TestListCollection.First();
-//         var updateDto = new UpdateListDto {
-//             Name = "Updated Name",
-//             Position = 1
-//         };
-//
-//         // Act
-//         var result = _controller.UpdateList(existingList.Key, updateDto) as OkObjectResult;
-//
-//         // Assert
-//         result.Should().NotBeNull();
-//         var updatedList = result!.Value as ListDto;
-//         updatedList.Should().NotBeNull();
-//         updatedList!.Name.Should().Be("Updated Name");
-//         updatedList.Position.Should().Be(1);
-//     }
-//
-//     [Fact]
-//     public void UpdateList_WithInvalidId_ReturnsNotFound() {
-//         // Arrange
-//         var updateDto = new UpdateListDto {
-//             Name = "Test Name",
-//             Position = 0
-//         };
-//
-//         // Act
-//         var result = _controller.UpdateList(Guid.NewGuid(), updateDto);
-//
-//         // Assert
-//         result.Should().BeOfType<NotFoundObjectResult>();
-//     }
-//
-//     [Fact]
-//     public void GetListTasks_WithValidId_ReturnsTasks() {
-//         // Arrange
-//         var existingList = TestData.TestListCollection.First();
-//
-//         // Act
-//         var result = _controller.GetListTasks(existingList.Key) as OkObjectResult;
-//
-//         // Assert
-//         result.Should().NotBeNull();
-//         var tasks = result!.Value as IEnumerable<TaskDto>;
-//         tasks.Should().NotBeNull();
-//         tasks!.All(t => t.ListId == existingList.Key).Should().BeTrue();
-//     }
-//
-//     [Fact]
-//     public void CreateTask_WithValidData_ReturnsCreatedTask() {
-//         // Arrange
-//         var existingList = TestData.TestListCollection.First();
-//         var createDto = new CreateTaskDto {
-//             Name = "New Task",
-//             Description = "Test Description",
-//             Status = CurrentTaskStatus.NotStarted,
-//             Priority = Priority.Medium,
-//             Deadline = DateTime.UtcNow.AddDays(1)
-//         };
-//
-//         // Act
-//         var result = _controller.CreateTask(existingList.Key, createDto) as CreatedAtActionResult;
-//
-//         // Assert
-//         result.Should().NotBeNull();
-//         var task = result!.Value as TaskDto;
-//         task.Should().NotBeNull();
-//         task!.Name.Should().Be("New Task");
-//         task.ListId.Should().Be(existingList.Key);
-//         task.ProjectId.Should().Be(existingList.Value.ProjectId);
-//         task.Assignees.Should().NotBeNull();
-//         task.Comments.Should().NotBeNull();
-//     }
-//
-//
-//     [Fact]
-//     public void UpdateListPosition_WithValidData_UpdatesPositions() {
-//         // Arrange
-//         var list = TestData.TestListCollection
-//             .First(l => l.Value.Position > 0);
-//         var newPosition = list.Value.Position - 1;
-//
-//         // Act
-//         var result = _controller.UpdateListPosition(list.Key, newPosition) as OkObjectResult;
-//
-//         // Assert
-//         result.Should().NotBeNull();
-//         var updatedList = result!.Value as ListDto;
-//         updatedList.Should().NotBeNull();
-//         updatedList!.Position.Should().Be(newPosition);
-//     }
-//
-//     [Fact]
-//     public void UpdateListPosition_WithTooHighPosition_ReturnsBadRequest() {
-//         // Arrange
-//         var list = TestData.TestListCollection.First();
-//         var invalidPosition = TestData.TestListCollection.Count + 1;
-//
-//         // Act
-//         var result = _controller.UpdateListPosition(list.Key, invalidPosition);
-//
-//         // Assert
-//         result.Should().BeOfType<BadRequestObjectResult>();
-//     }
-//
-//
-//     [Fact]
-//     public void DeleteList_WithValidId_ReturnsNoContent() {
-//         // Arrange
-//         var existingList = TestData.TestListCollection.First();
-//
-//         // Act
-//         var result = _controller.DeleteList(existingList.Key);
-//
-//         // Assert
-//         result.Should().BeOfType<NoContentResult>();
-//     }
-//
-//     [Fact]
-//     public void DeleteList_WithInvalidId_ReturnsNotFound() {
-//         // Act
-//         var result = _controller.DeleteList(Guid.NewGuid());
-//
-//         // Assert
-//         result.Should().BeOfType<NotFoundObjectResult>();
-//     }
-// }
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
+using Zello.Api.Controllers;
+using Zello.Application.Dtos;
+using Zello.Domain.Entities;
+using Zello.Domain.Enums;
+using Zello.Infrastructure.Data;
+
+namespace Zello.Api.UnitTests;
+
+public class ListControllerTests : IDisposable {
+    private readonly ListController _controller;
+    private readonly ApplicationDbContext _context;
+    private Guid _testListId;
+    private Guid _testProjectId;
+    private Guid _testWorkspaceId;
+
+    public ListControllerTests() {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+        _context = new ApplicationDbContext(options);
+        _controller = new ListController(_context);
+        SeedTestData().GetAwaiter().GetResult();
+    }
+
+    private async Task SeedTestData() {
+        var workspace = new Workspace {
+            Id = Guid.NewGuid(),
+            Name = "Test Workspace"
+        };
+        _testWorkspaceId = workspace.Id;
+
+        var project = new Project {
+            Id = Guid.NewGuid(),
+            Name = "Test Project",
+            Workspace = workspace,
+            WorkspaceId = workspace.Id
+        };
+        _testProjectId = project.Id;
+
+        var list = new TaskList {
+            Id = Guid.NewGuid(),
+            Name = "Test List",
+            ProjectId = project.Id,
+            Project = project,
+            Position = 0
+        };
+        _testListId = list.Id;
+
+        await _context.Workspaces.AddAsync(workspace);
+        await _context.Projects.AddAsync(project);
+        await _context.Lists.AddAsync(list);
+        await _context.SaveChangesAsync();
+    }
+
+    public void Dispose() {
+        _context.Database.EnsureDeleted();
+        _context.Dispose();
+    }
+
+    [Fact]
+    public async Task GetAllLists_ReturnsOkResult() {
+        var result = await _controller.GetAllLists();
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var lists = Assert.IsType<List<ListReadDto>>(okResult.Value);
+        Assert.Single(lists);
+        Assert.Equal("Test List", lists[0].Name);
+    }
+
+    [Fact]
+    public async Task GetAllLists_WithProjectFilter_ReturnsFilteredLists() {
+        var result = await _controller.GetAllLists(_testProjectId);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var lists = Assert.IsType<List<ListReadDto>>(okResult.Value);
+        Assert.Single(lists);
+        Assert.All(lists, l => Assert.Equal(_testProjectId, l.ProjectId));
+    }
+
+    [Fact]
+    public async Task GetListById_WithValidId_ReturnsCorrectList() {
+        var result = await _controller.GetListById(_testListId);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var listDto = Assert.IsType<ListReadDto>(okResult.Value);
+        Assert.Equal(_testListId, listDto.Id);
+        Assert.Equal("Test List", listDto.Name);
+    }
+
+    [Fact]
+    public async Task GetListById_WithInvalidId_ReturnsNotFound() {
+        var result = await _controller.GetListById(Guid.NewGuid());
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task UpdateList_WithValidData_ReturnsUpdatedList() {
+        var updateDto = new ListUpdateDto {
+            Name = "Updated List",
+            Position = 1,
+            Id = _testListId // Changed from ProjectId since we don't need it in update
+        };
+
+        var result = await _controller.UpdateList(_testListId, updateDto);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var listDto = Assert.IsType<ListReadDto>(okResult.Value);
+        Assert.Equal("Updated List", listDto.Name);
+        Assert.Equal(1, listDto.Position);
+    }
+
+    [Fact]
+    public async Task UpdateList_WithInvalidId_ReturnsNotFound() {
+        var updateDto = new ListUpdateDto {
+            Name = "Updated List",
+            Position = 1
+        };
+
+        var result = await _controller.UpdateList(Guid.NewGuid(), updateDto);
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task UpdateListPosition_WithValidData_UpdatesPositions() {
+        // Add another list to make the position update valid
+        var newList = new TaskList {
+            Id = Guid.NewGuid(),
+            Name = "Test List 2",
+            ProjectId = _testProjectId,
+            Position = 1
+        };
+        await _context.Lists.AddAsync(newList);
+        await _context.SaveChangesAsync();
+
+        var updateDto = new ListUpdateDto {
+            Position = 1
+        };
+
+        var result = await _controller.UpdateListPosition(_testListId, updateDto);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var listDto = Assert.IsType<ListReadDto>(okResult.Value);
+        Assert.Equal(1, listDto.Position);
+    }
+
+    [Fact]
+    public async Task UpdateListPosition_WithInvalidPosition_ReturnsBadRequest() {
+        var updateDto = new ListUpdateDto {
+            Position = -1
+        };
+
+        var result = await _controller.UpdateListPosition(_testListId, updateDto);
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task CreateTask_ValidInput_ReturnsCreatedResult() {
+        var userId = Guid.NewGuid();
+        var workspaceMember = new WorkspaceMember {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            WorkspaceId = _testWorkspaceId
+        };
+
+        await _context.WorkspaceMembers.AddAsync(workspaceMember);
+        await _context.SaveChangesAsync();
+
+        var createDto = new TaskCreateDto {
+            Name = "New Task",
+            ProjectId = _testProjectId,
+            ListId = _testListId,
+            Status = CurrentTaskStatus.NotStarted,
+            Priority = Priority.Medium,
+            Deadline = DateTime.UtcNow.AddDays(1)
+        };
+
+        _controller.ControllerContext = new ControllerContext {
+            HttpContext = new DefaultHttpContext {
+                User = new ClaimsPrincipal(new ClaimsIdentity(new[] {
+                    new Claim("UserId", userId.ToString())
+                }))
+            }
+        };
+
+        var result = await _controller.CreateTask(_testListId, createDto);
+        var createdResult = Assert.IsType<CreatedAtActionResult>(result);
+        var taskDto = Assert.IsType<TaskReadDto>(createdResult.Value);
+    }
+
+
+    [Fact]
+    public async Task GetListTasks_WithValidId_ReturnsTasks() {
+        var result = await _controller.GetListTasks(_testListId);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var tasks = Assert.IsType<List<TaskReadDto>>(okResult.Value);
+        Assert.All(tasks, t => Assert.Equal(_testListId, t.ListId));
+    }
+
+    [Fact]
+    public async Task GetListTasks_WithInvalidId_ReturnsNotFound() {
+        var result = await _controller.GetListTasks(Guid.NewGuid());
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+}

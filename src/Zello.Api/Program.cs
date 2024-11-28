@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -100,6 +101,10 @@ builder.Services.AddAuthorization(options => {
                        Enum.TryParse<AccessLevel>(accessLevelClaim.Value, out var userLevel) &&
                        userLevel >= minimumLevel;
             }));
+
+        // Add individual policy for the current access level
+        options.AddPolicy(level, policy =>
+            policy.RequireClaim("AccessLevel", level));
     }
 
     // Add policies for each access level
@@ -114,11 +119,16 @@ builder.Services.AddAuthorization(options => {
 #region Swagger Configuration
 
 builder.Services.AddSwaggerGen(c => {
-    // Basic Swagger document info
     c.SwaggerDoc("v1", new OpenApiInfo {
         Title = "Zello API",
         Version = "v1"
     });
+
+    // Add XML Comments
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    c.IncludeXmlComments(xmlPath);
+
 
     // Configure JWT authentication in Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme {
@@ -191,16 +201,9 @@ if (app.Environment.IsDevelopment()) {
         var swaggerService = scope.ServiceProvider.GetRequiredService<ISwaggerService>();
 
         var currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
-        Console.WriteLine($"Base Directory: {currentDirectory}");
-
         var apiDirectory = Directory.GetParent(currentDirectory)?.Parent?.Parent?.Parent;
-        Console.WriteLine($"API Directory: {apiDirectory?.FullName}");
-
         var srcDirectory = apiDirectory?.Parent;
-        Console.WriteLine($"Src Directory: {srcDirectory?.FullName}");
-
         var solutionDirectory = srcDirectory?.Parent;
-        Console.WriteLine($"Solution Directory: {solutionDirectory?.FullName}");
 
         var yamlPath = Path.Combine(
             solutionDirectory?.FullName ??
@@ -212,7 +215,7 @@ if (app.Environment.IsDevelopment()) {
             "Zello.yaml"
         );
 
-        Console.WriteLine($"Final YAML Path: {yamlPath}");
+
         swaggerService.SaveSwaggerYaml(app, yamlPath);
     }
 }

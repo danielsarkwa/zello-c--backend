@@ -3,119 +3,21 @@ info:
   title: Zello API
   version: v1
 paths:
-  /api/v1/Auth/register:
-    post:
-      tags:
-        - Auth
-      requestBody:
-        content:
-          application/json-patch+json:
-            schema:
-              $ref: '#/components/schemas/RegisterUserRequest'
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegisterUserRequest'
-          text/json:
-            schema:
-              $ref: '#/components/schemas/RegisterUserRequest'
-          application/*+json:
-            schema:
-              $ref: '#/components/schemas/RegisterUserRequest'
-      responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema: { }
-            application/json:
-              schema: { }
-            text/json:
-              schema: { }
-        '400':
-          description: Bad Request
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ValidationProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ValidationProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ValidationProblemDetails'
-  /api/v1/Auth/login:
-    post:
-      tags:
-        - Auth
-      requestBody:
-        content:
-          application/json-patch+json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-          text/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-          application/*+json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-      responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/LoginResponse'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LoginResponse'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/LoginResponse'
-        '401':
-          description: Unauthorized
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/Auth/logout:
-    post:
-      tags:
-        - Auth
-      responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/SimpleMessage'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SimpleMessage'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/SimpleMessage'
   /api/v1/Comments:
     get:
       tags:
         - Comments
+      summary: Retrieves comments with optional filtering by task ID.
       parameters:
         - name: taskId
           in: query
+          description: Optional. The ID of the task to filter comments by.
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: Returns the list of comments.
           content:
             text/plain:
               schema:
@@ -132,10 +34,37 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Comment'
+        '400':
+          description: If the user ID is missing from the claims.
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: If the user doesn't have access to view the comments.
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
     post:
       tags:
         - Comments
+      summary: Creates a new comment on a task.
+      description: "Sample request:\r\n            \r\n    POST /api/v1/comments\r\n    {\r\n        \"task_id\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\r\n        \"content\": \"This is a comment\"\r\n    }"
       requestBody:
+        description: The comment creation request containing the task ID and comment content.
         content:
           application/json-patch+json:
             schema:
@@ -151,7 +80,7 @@ paths:
               $ref: '#/components/schemas/CreateCommentRequest'
       responses:
         '201':
-          description: Created
+          description: Returns the newly created comment.
           content:
             text/plain:
               schema:
@@ -163,7 +92,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Comment'
         '400':
-          description: Bad Request
+          description: If the request is invalid or user ID is missing.
           content:
             text/plain:
               schema:
@@ -175,7 +104,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: If the specified task was not found.
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: If the user doesn't have access to the task's project.
           content:
             text/plain:
               schema:
@@ -190,16 +131,18 @@ paths:
     get:
       tags:
         - Comments
+      summary: Retrieves a specific comment by its ID.
       parameters:
         - name: commentId
           in: path
+          description: The ID of the comment to retrieve.
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: Returns the requested comment.
           content:
             text/plain:
               schema:
@@ -210,8 +153,32 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/Comment'
+        '400':
+          description: If the user ID is missing from the claims.
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: If the comment with the specified ID was not found.
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: If the user doesn't have access to view the comment.
           content:
             text/plain:
               schema:
@@ -225,14 +192,18 @@ paths:
     put:
       tags:
         - Comments
+      summary: Updates an existing comment.
+      description: "Sample request:\r\n            \r\n    PUT /api/v1/comments/{commentId}\r\n    {\r\n        \"content\": \"Updated comment text\"\r\n    }\r\n            \r\nOnly the comment owner or an admin can update the comment."
       parameters:
         - name: commentId
           in: path
+          description: The ID of the comment to update.
           required: true
           schema:
             type: string
             format: uuid
       requestBody:
+        description: The update request containing the new comment content.
         content:
           application/json-patch+json:
             schema:
@@ -248,7 +219,7 @@ paths:
               $ref: '#/components/schemas/UpdateCommentRequest'
       responses:
         '200':
-          description: OK
+          description: Returns the updated comment.
           content:
             text/plain:
               schema:
@@ -260,7 +231,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Comment'
         '400':
-          description: Bad Request
+          description: If the request is invalid or user ID is missing.
           content:
             text/plain:
               schema:
@@ -272,7 +243,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: If the comment with the specified ID was not found.
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: If the user doesn't have access to update the comment.
           content:
             text/plain:
               schema:
@@ -286,18 +269,45 @@ paths:
     delete:
       tags:
         - Comments
+      summary: Deletes a specific comment.
+      description: Only the comment owner or an admin can delete the comment.
       parameters:
         - name: commentId
           in: path
+          description: The ID of the comment to delete.
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '204':
-          description: No Content
+          description: If the comment was successfully deleted.
+        '400':
+          description: If the user ID is missing from the claims.
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: If the comment with the specified ID was not found.
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: If the user doesn't have access to delete the comment.
           content:
             text/plain:
               schema:
@@ -312,16 +322,18 @@ paths:
     get:
       tags:
         - List
+      summary: Retrieves a specific list by its ID
       parameters:
         - name: listId
           in: path
+          description: The unique identifier of the list to retrieve
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: Returns the requested list
           content:
             text/plain:
               schema:
@@ -333,7 +345,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListReadDto'
         '404':
-          description: Not Found
+          description: List with specified ID was not found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: User does not have permission to access this list
           content:
             text/plain:
               schema:
@@ -347,30 +371,33 @@ paths:
     put:
       tags:
         - List
+      summary: Updates an existing list
       parameters:
         - name: listId
           in: path
+          description: The unique identifier of the list to update
           required: true
           schema:
             type: string
             format: uuid
       requestBody:
+        description: The updated list data
         content:
           application/json-patch+json:
             schema:
-              $ref: '#/components/schemas/ListCreateDto'
+              $ref: '#/components/schemas/ListUpdateDto'
           application/json:
             schema:
-              $ref: '#/components/schemas/ListCreateDto'
+              $ref: '#/components/schemas/ListUpdateDto'
           text/json:
             schema:
-              $ref: '#/components/schemas/ListCreateDto'
+              $ref: '#/components/schemas/ListUpdateDto'
           application/*+json:
             schema:
-              $ref: '#/components/schemas/ListCreateDto'
+              $ref: '#/components/schemas/ListUpdateDto'
       responses:
         '200':
-          description: OK
+          description: List was successfully updated
           content:
             text/plain:
               schema:
@@ -382,7 +409,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListReadDto'
         '400':
-          description: Bad Request
+          description: The request data is invalid
           content:
             text/plain:
               schema:
@@ -394,7 +421,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: List with specified ID was not found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: User does not have permission to update this list
           content:
             text/plain:
               schema:
@@ -409,15 +448,17 @@ paths:
     get:
       tags:
         - List
+      summary: Retrieves all lists accessible to the current user
       parameters:
         - name: projectId
           in: query
+          description: Optional project ID to filter lists by project
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: Returns all accessible lists
           content:
             text/plain:
               schema:
@@ -434,38 +475,49 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ListReadDto'
+        '403':
+          description: User does not have permission to access lists
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/List/{listId}/position':
     put:
       tags:
         - List
+      summary: Updates the position of a list within its project
       parameters:
         - name: listId
           in: path
+          description: The unique identifier of the list to reposition
           required: true
           schema:
             type: string
             format: uuid
       requestBody:
+        description: The update data containing the new position
         content:
           application/json-patch+json:
             schema:
-              type: integer
-              format: int32
+              $ref: '#/components/schemas/ListUpdateDto'
           application/json:
             schema:
-              type: integer
-              format: int32
+              $ref: '#/components/schemas/ListUpdateDto'
           text/json:
             schema:
-              type: integer
-              format: int32
+              $ref: '#/components/schemas/ListUpdateDto'
           application/*+json:
             schema:
-              type: integer
-              format: int32
+              $ref: '#/components/schemas/ListUpdateDto'
       responses:
         '200':
-          description: OK
+          description: List position was successfully updated
           content:
             text/plain:
               schema:
@@ -477,7 +529,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListReadDto'
         '400':
-          description: Bad Request
+          description: The requested position is invalid
           content:
             text/plain:
               schema:
@@ -489,7 +541,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: List with specified ID was not found
           content:
             text/plain:
               schema:
@@ -500,18 +552,35 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: User does not have permission to update list positions
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: An error occurred while updating the list position
   '/api/v1/List/{listId}/tasks':
     post:
       tags:
         - List
+      summary: Creates a new task in the specified list
       parameters:
         - name: listId
           in: path
+          description: The unique identifier of the list to add the task to
           required: true
           schema:
             type: string
             format: uuid
       requestBody:
+        description: The task data to create
         content:
           application/json-patch+json:
             schema:
@@ -527,7 +596,7 @@ paths:
               $ref: '#/components/schemas/TaskCreateDto'
       responses:
         '201':
-          description: Created
+          description: Task was successfully created
           content:
             text/plain:
               schema:
@@ -539,19 +608,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TaskReadDto'
         '400':
-          description: Bad Request
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Not Found
+          description: The task data is invalid
           content:
             text/plain:
               schema:
@@ -563,7 +620,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: User does not have permission to create tasks in this list
           content:
             text/plain:
               schema:
@@ -574,19 +631,35 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: List with specified ID was not found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: An error occurred while creating the task
     get:
       tags:
         - List
+      summary: Retrieves all tasks in a specific list
       parameters:
         - name: listId
           in: path
+          description: The unique identifier of the list
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: Returns all tasks in the list
           content:
             text/plain:
               schema:
@@ -604,7 +677,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/TaskReadDto'
         '404':
-          description: Not Found
+          description: List with specified ID was not found
           content:
             text/plain:
               schema:
@@ -615,6 +688,20 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: User does not have permission to access this list
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: An error occurred while retrieving tasks
   /api/v1/Project:
     post:
       tags:
@@ -658,6 +745,18 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
     get:
       tags:
         - Project
@@ -670,6 +769,104 @@ paths:
       responses:
         '200':
           description: OK
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectReadDto'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectReadDto'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectReadDto'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/Project/members/access:
+    put:
+      tags:
+        - Project
+      summary: Updates the access level of a project member
+      description: "Requires the following permissions:\r\n- Admin access, or\r\n- Project Owner access level\r\n            \r\nAccess level restrictions:\r\n- Cannot assign higher access than your own level (except admins)\r\n- Cannot exceed member's workspace access level\r\n- Cannot modify access if you're below Owner level"
+      requestBody:
+        description: The member elevation details including member ID and new access level
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/MemberElevationDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberElevationDto'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/MemberElevationDto'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/MemberElevationDto'
+      responses:
+        '200':
+          description: Member access level successfully updated
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProjectMemberReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMemberReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMemberReadDto'
+        '400':
+          description: Invalid elevation data provided
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Project member not found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Insufficient permissions to modify access levels
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/Project/{projectId}':
     get:
       tags:
@@ -696,6 +893,18 @@ paths:
                 $ref: '#/components/schemas/ProjectReadDto'
         '404':
           description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
           content:
             text/plain:
               schema:
@@ -767,6 +976,18 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
     delete:
       tags:
         - Project
@@ -782,6 +1003,18 @@ paths:
           description: No Content
         '404':
           description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
           content:
             text/plain:
               schema:
@@ -921,6 +1154,18 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
     get:
       tags:
         - Project
@@ -934,6 +1179,46 @@ paths:
       responses:
         '200':
           description: OK
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListReadDto'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListReadDto'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListReadDto'
+        '404':
+          description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/Task/{taskId}':
     get:
       tags:
@@ -970,6 +1255,18 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
     put:
       tags:
         - Task
@@ -984,53 +1281,19 @@ paths:
         content:
           application/json-patch+json:
             schema:
-              $ref: '#/components/schemas/TaskCreateDto'
+              $ref: '#/components/schemas/TaskUpdateDto'
           application/json:
             schema:
-              $ref: '#/components/schemas/TaskCreateDto'
+              $ref: '#/components/schemas/TaskUpdateDto'
           text/json:
             schema:
-              $ref: '#/components/schemas/TaskCreateDto'
+              $ref: '#/components/schemas/TaskUpdateDto'
           application/*+json:
             schema:
-              $ref: '#/components/schemas/TaskCreateDto'
+              $ref: '#/components/schemas/TaskUpdateDto'
       responses:
         '200':
           description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/TaskReadDto'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TaskReadDto'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/TaskReadDto'
-        '400':
-          description: Bad Request
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Not Found
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
     delete:
       tags:
         - Task
@@ -1056,6 +1319,41 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/Task:
+    get:
+      tags:
+        - Task
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskReadDto'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskReadDto'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskReadDto'
   '/api/v1/Task/{taskId}/move':
     post:
       tags:
@@ -1108,6 +1406,18 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
           description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
           content:
             text/plain:
               schema:
@@ -1233,6 +1543,18 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   '/api/v1/Task/{taskId}/assignees/{userId}':
     delete:
       tags:
@@ -1309,6 +1631,18 @@ paths:
                   $ref: '#/components/schemas/CommentReadDto'
         '404':
           description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
           content:
             text/plain:
               schema:
@@ -1442,6 +1776,28 @@ paths:
       responses:
         '200':
           description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/User/register:
     post:
       tags:
@@ -1502,15 +1858,27 @@ paths:
           content:
             text/plain:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/UserDto'
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/UserDto'
             text/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/UserDto'
         '404':
           description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
           content:
             text/plain:
               schema:
@@ -1582,6 +1950,18 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
     delete:
       tags:
         - User
@@ -1597,6 +1977,18 @@ paths:
           description: No Content
         '404':
           description: Not Found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
           content:
             text/plain:
               schema:
@@ -1630,34 +2022,278 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/UserDto'
-  '/api/v1/system/UsersSystem/{userId}/role':
-    put:
+        '403':
+          description: Forbidden
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/Workspaces/{workspaceId}':
+    delete:
       tags:
-        - UsersSystem
+        - Workspaces
+      summary: Deletes a workspace
+      description: "Only workspace owners and administrators can delete workspaces.\r\nDeleting a workspace will also delete all associated projects, lists, and tasks."
       parameters:
-        - name: userId
+        - name: workspaceId
           in: path
+          description: The ID of the workspace to delete
           required: true
           schema:
             type: string
-      requestBody:
-        content:
-          application/json-patch+json:
-            schema: { }
-          application/json:
-            schema: { }
-          text/json:
-            schema: { }
-          application/*+json:
-            schema: { }
+            format: uuid
+      responses:
+        '204':
+          description: Workspace successfully deleted
+        '404':
+          description: Workspace not found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: User does not have permission to delete the workspace
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    get:
+      tags:
+        - Workspaces
+      summary: Retrieves a specific workspace by its ID
+      description: "Returns detailed information about the workspace including:\r\n- Basic workspace information (name, owner, creation date)\r\n- List of workspace members and their access levels\r\n- Associated projects and their task lists"
+      parameters:
+        - name: workspaceId
+          in: path
+          description: The unique identifier of the workspace to retrieve
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: OK
+          description: The requested workspace details
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/WorkspaceReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceReadDto'
+        '404':
+          description: Workspace not found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: User does not have access to this workspace
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - Workspaces
+      summary: Updates an existing workspace
+      description: "Only workspace owners and administrators can update workspace details.\r\nCurrently supports updating the workspace name only."
+      parameters:
+        - name: workspaceId
+          in: path
+          description: The ID of the workspace to update
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: The updated workspace details
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceUpdateDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceUpdateDto'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceUpdateDto'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceUpdateDto'
+      responses:
+        '200':
+          description: Workspace updated successfully
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/WorkspaceReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceReadDto'
+        '404':
+          description: Workspace not found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: User does not have permission to update the workspace
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/Workspaces/members/access:
+    put:
+      tags:
+        - Workspaces
+      summary: Updates the access level of a workspace member
+      description: "Requires the following permissions:\r\n- Admin access, or\r\n- Workspace Owner access level\r\n            \r\nAccess level restrictions:\r\n- Cannot assign higher access than your own level (except admins)\r\n- Cannot modify access if you're below Owner level\r\n- Cannot assign Admin level unless you are an Admin\r\n            \r\nAll project access levels for this member will be validated to ensure they don't\r\nexceed the new workspace access level."
+      requestBody:
+        description: The member elevation details including member ID and new access level
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/MemberElevationDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberElevationDto'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/MemberElevationDto'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/MemberElevationDto'
+      responses:
+        '200':
+          description: Member access level successfully updated
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/WorkspaceMemberReadDto'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceMemberReadDto'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceMemberReadDto'
+        '404':
+          description: Workspace member not found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Insufficient permissions to modify access levels
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: Invalid elevation data provided
   /api/v1/Workspaces:
+    get:
+      tags:
+        - Workspaces
+      summary: Retrieves all workspaces accessible to the current user
+      description: "For regular users, returns only workspaces where they are members.\r\nFor administrators, returns all workspaces in the system.\r\nThe response includes details about workspace members, projects, and associated lists."
+      responses:
+        '200':
+          description: List of accessible workspaces
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceReadDto'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceReadDto'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceReadDto'
+        '403':
+          description: User is not authorized
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
     post:
       tags:
         - Workspaces
+      summary: Creates a new workspace
+      description: "Creates a new workspace and automatically:\r\n- Assigns the current user as the workspace owner\r\n- Adds the creator as a workspace member with Owner access level\r\n- Initializes an empty project list"
       requestBody:
+        description: The workspace creation details
         content:
           application/json-patch+json:
             schema:
@@ -1673,205 +2309,19 @@ paths:
               $ref: '#/components/schemas/WorkspaceCreateDto'
       responses:
         '201':
-          description: Created
+          description: Workspace created successfully
           content:
             text/plain:
               schema:
-                $ref: '#/components/schemas/Workspace'
+                $ref: '#/components/schemas/WorkspaceReadDto'
             application/json:
               schema:
-                $ref: '#/components/schemas/Workspace'
+                $ref: '#/components/schemas/WorkspaceReadDto'
             text/json:
               schema:
-                $ref: '#/components/schemas/Workspace'
+                $ref: '#/components/schemas/WorkspaceReadDto'
         '400':
-          description: Bad Request
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    get:
-      tags:
-        - Workspaces
-      responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/WorkspaceReadDto'
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/WorkspaceReadDto'
-            text/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/WorkspaceReadDto'
-  '/api/v1/Workspaces/{workspaceId}':
-    get:
-      tags:
-        - Workspaces
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/Workspace'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Workspace'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/Workspace'
-        '404':
-          description: Not Found
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    put:
-      tags:
-        - Workspaces
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        content:
-          application/json-patch+json:
-            schema:
-              $ref: '#/components/schemas/WorkspaceUpdateDto'
-          application/json:
-            schema:
-              $ref: '#/components/schemas/WorkspaceUpdateDto'
-          text/json:
-            schema:
-              $ref: '#/components/schemas/WorkspaceUpdateDto'
-          application/*+json:
-            schema:
-              $ref: '#/components/schemas/WorkspaceUpdateDto'
-      responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/WorkspaceReadDto'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WorkspaceReadDto'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/WorkspaceReadDto'
-        '404':
-          description: Not Found
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '400':
-          description: Bad Request
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    delete:
-      tags:
-        - Workspaces
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '204':
-          description: No Content
-        '404':
-          description: Not Found
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-            text/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  '/api/v1/Workspaces/{workspaceId}/projects':
-    get:
-      tags:
-        - Workspaces
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: OK
-          content:
-            text/plain:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ProjectReadDto'
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ProjectReadDto'
-            text/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ProjectReadDto'
-        '404':
-          description: Not Found
+          description: Invalid workspace data provided
           content:
             text/plain:
               schema:
@@ -1886,16 +2336,19 @@ paths:
     get:
       tags:
         - Workspaces
+      summary: Retrieves all members of a specific workspace
+      description: "Returns a list of all members in the workspace along with their access levels.\r\nOnly accessible to workspace members and administrators."
       parameters:
         - name: workspaceId
           in: path
+          description: The ID of the workspace
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: List of workspace members
           content:
             text/plain:
               schema:
@@ -1913,7 +2366,19 @@ paths:
                 items:
                   $ref: '#/components/schemas/WorkspaceMemberReadDto'
         '404':
-          description: Not Found
+          description: Workspace not found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: User does not have access to this workspace
           content:
             text/plain:
               schema:
@@ -1927,14 +2392,18 @@ paths:
     post:
       tags:
         - Workspaces
+      summary: Adds a new member to a workspace
+      description: "Only workspace owners and administrators can add new members.\r\nThe access level assigned cannot be higher than the user performing the action."
       parameters:
         - name: workspaceId
           in: path
+          description: The ID of the workspace
           required: true
           schema:
             type: string
             format: uuid
       requestBody:
+        description: The member details to add
         content:
           application/json-patch+json:
             schema:
@@ -1950,7 +2419,7 @@ paths:
               $ref: '#/components/schemas/WorkspaceMemberCreateDto'
       responses:
         '201':
-          description: Created
+          description: Member added successfully
           content:
             text/plain:
               schema:
@@ -1962,7 +2431,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/WorkspaceMemberReadDto'
         '404':
-          description: Not Found
+          description: Workspace or user not found
           content:
             text/plain:
               schema:
@@ -1974,7 +2443,76 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '400':
-          description: Bad Request
+          description: User is already a member
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Insufficient permissions to add members
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  '/api/v1/Workspaces/{workspaceId}/projects':
+    get:
+      tags:
+        - Workspaces
+      summary: Retrieves all projects in a workspace
+      description: "Returns a list of all projects in the workspace.\r\nOnly accessible to workspace members and administrators."
+      parameters:
+        - name: workspaceId
+          in: path
+          description: The ID of the workspace
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of workspace projects
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectReadDto'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectReadDto'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectReadDto'
+        '404':
+          description: Workspace not found
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: User does not have access to this workspace
           content:
             text/plain:
               schema:
@@ -2174,18 +2712,22 @@ components:
           type: string
           format: date-time
       additionalProperties: false
-    LoginRequest:
-      required:
-        - password
-        - username
+    ListUpdateDto:
       type: object
       properties:
-        username:
+        id:
+          type: string
+          format: uuid
+        name:
+          maxLength: 20
+          minLength: 3
           type: string
           nullable: true
-        password:
-          type: string
-          nullable: true
+        position:
+          maximum: 2147483647
+          minimum: 0
+          type: integer
+          format: int32
       additionalProperties: false
     LoginResponse:
       required:
@@ -2213,6 +2755,18 @@ components:
         description:
           type: string
           nullable: true
+      additionalProperties: false
+    MemberElevationDto:
+      required:
+        - memberId
+        - newAccessLevel
+      type: object
+      properties:
+        memberId:
+          type: string
+          format: uuid
+        newAccessLevel:
+          $ref: '#/components/schemas/AccessLevel'
       additionalProperties: false
     MoveTaskRequest:
       type: object
@@ -2538,42 +3092,6 @@ components:
         accessLevel:
           $ref: '#/components/schemas/AccessLevel'
       additionalProperties: false
-    RegisterUserRequest:
-      required:
-        - email
-        - name
-        - password
-        - username
-      type: object
-      properties:
-        username:
-          maxLength: 20
-          minLength: 3
-          type: string
-        email:
-          minLength: 1
-          type: string
-          format: email
-        password:
-          maxLength: 2147483647
-          minLength: 8
-          type: string
-        name:
-          minLength: 1
-          type: string
-      additionalProperties: false
-    SimpleMessage:
-      required:
-        - message
-      type: object
-      properties:
-        message:
-          minLength: 1
-          type: string
-        reason:
-          type: string
-          nullable: true
-      additionalProperties: false
     TaskAssignee:
       type: object
       properties:
@@ -2634,9 +3152,7 @@ components:
       additionalProperties: false
     TaskCreateDto:
       required:
-        - listId
         - name
-        - projectId
         - status
       type: object
       properties:
@@ -2786,6 +3302,27 @@ components:
         project:
           $ref: '#/components/schemas/ProjectReadDto'
       additionalProperties: false
+    TaskUpdateDto:
+      type: object
+      properties:
+        name:
+          maxLength: 100
+          minLength: 3
+          type: string
+          nullable: true
+        description:
+          maxLength: 100
+          minLength: 3
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/CurrentTaskStatus'
+        priority:
+          $ref: '#/components/schemas/Priority'
+        deadline:
+          type: string
+          format: date-time
+      additionalProperties: false
     TokenRequest:
       required:
         - password
@@ -2925,33 +3462,6 @@ components:
         accessLevel:
           $ref: '#/components/schemas/AccessLevel'
       additionalProperties: false
-    ValidationProblemDetails:
-      type: object
-      properties:
-        type:
-          type: string
-          nullable: true
-        title:
-          type: string
-          nullable: true
-        status:
-          type: integer
-          format: int32
-          nullable: true
-        detail:
-          type: string
-          nullable: true
-        instance:
-          type: string
-          nullable: true
-        errors:
-          type: object
-          additionalProperties:
-            type: array
-            items:
-              type: string
-          nullable: true
-      additionalProperties: { }
     WorkTask:
       required:
         - name

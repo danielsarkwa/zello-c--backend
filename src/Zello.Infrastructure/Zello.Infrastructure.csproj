@@ -12,6 +12,7 @@
     <ProjectReference Include="..\Zello.Application\Zello.Application.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Isopoh.Cryptography.Argon2" Version="2.0.0" />
     <PackageReference Include="Meziantou.Analyzer" Version="2.0.177">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

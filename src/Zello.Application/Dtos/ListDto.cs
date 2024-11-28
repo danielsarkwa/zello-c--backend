@@ -51,8 +51,10 @@ public class ListCreateDto {
 }
 
 public class ListUpdateDto {
+    public Guid Id { get; set; }  // Add this to support ID assignment
+
     [StringLength(20, MinimumLength = 3)]
-    [JsonProperty("Name")]
+    [JsonProperty("name")]  // Make lowercase to match convention
     public string? Name { get; set; }
 
     [Range(0, int.MaxValue, ErrorMessage = "Position must be a non-negative value.")]

@@ -13,7 +13,7 @@ namespace Zello.Api.Authorization;
 /// [MinimumAccessLevel(AccessLevel.Admin)] - Requires Admin level only
 ///
 /// The attribute works with the hierarchical access level system where:
-/// Guest (0) < Member (10) < Owner (20) < Admin (30)
+/// Guest (0), Member (10), Owner (20), Admin (30)
 /// </remarks>
 public class MinimumAccessLevelAttribute : AuthorizeAttribute {
     /// <summary>

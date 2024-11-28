@@ -35,6 +35,7 @@ public class UserController : ControllerBase {
     }
 
     [HttpPost("login")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login([FromBody] TokenRequest request) {
@@ -50,11 +51,13 @@ public class UserController : ControllerBase {
     }
 
     [HttpGet("me")]
-    [Authorize]
+    [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetCurrentUser() {
-        var userId = _userIdentityService.GetUserId(User);
+        var userId = ClaimsHelper.GetUserId(User);
+        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
         if (userId == null)
-            return Unauthorized(new { Message = "User not authenticated" });
+            return BadRequest("User ID missing");
 
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.Id == userId.Value);
@@ -62,21 +65,20 @@ public class UserController : ControllerBase {
         if (user == null)
             return NotFound(new { Message = "User not found" });
 
-        var accessLevel = _userClaimsService.GetAccessLevel(User);
-
         var userDto = new UserDto(
             id: user.Id,
             username: user.Username,
             email: user.Email,
             name: user.Name
         ) {
-            AccessLevel = accessLevel ?? AccessLevel.Guest
+            AccessLevel = userAccess ?? AccessLevel.Guest
         };
 
         return Ok(userDto);
     }
 
     [HttpPost("register")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RegisterUser([FromBody] RegisterDto registerDto) {
@@ -124,9 +126,19 @@ public class UserController : ControllerBase {
     }
 
     [HttpGet("{userId}")]
-    [ProducesResponseType(typeof(User), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetUserById(Guid userId) {
+        var currentUserId = ClaimsHelper.GetUserId(User);
+        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
+        if (currentUserId == null)
+            return BadRequest("User ID missing");
+
+        // Only allow users to view their own profile or admin to view any profile
+        if (userId != currentUserId && userAccess != AccessLevel.Admin)
+            return Forbid("You can only view your own profile");
+
         var user = await _context.Users
             .Include(u => u.WorkspaceMembers)
             .Include(u => u.AssignedTasks)
@@ -136,18 +148,14 @@ public class UserController : ControllerBase {
         if (user == null)
             return NotFound($"User with ID {userId} not found");
 
-        // Create new User instance with all required properties
-        var userDto = new User {
-            Id = user.Id,
-            Username = user.Username,
-            Email = user.Email,
-            Name = user.Name,
-            PasswordHash = user.PasswordHash,
+        var userDto = new UserDto(
+            id: user.Id,
+            username: user.Username,
+            email: user.Email,
+            name: user.Name
+        ) {
             AccessLevel = user.AccessLevel,
-            CreatedDate = user.CreatedDate,
-            WorkspaceMembers = user.WorkspaceMembers?.ToList() ?? new List<WorkspaceMember>(),
-            AssignedTasks = user.AssignedTasks?.ToList() ?? new List<TaskAssignee>(),
-            Comments = user.Comments?.ToList() ?? new List<Comment>()
+            CreatedDate = user.CreatedDate
         };
 
         return Ok(userDto);
@@ -155,24 +163,31 @@ public class UserController : ControllerBase {
 
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<UserDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetAllUsers() {
+        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
+        var userId = ClaimsHelper.GetUserId(User);
+        if (userId == null)
+            return BadRequest("User ID missing");
+
+        // Only admin can list all users
+        if (userAccess != AccessLevel.Admin)
+            return Forbid("Only administrators can view all users");
+
         var users = await _context.Users
             .Include(u => u.WorkspaceMembers)
             .Include(u => u.AssignedTasks)
             .Include(u => u.Comments)
             .ToListAsync();
 
-        var userDtos = users.Select(user => new User {
-            Id = user.Id,
-            Username = user.Username,
-            Email = user.Email,
-            Name = user.Name,
-            PasswordHash = user.PasswordHash,
+        var userDtos = users.Select(user => new UserDto(
+            id: user.Id,
+            username: user.Username,
+            email: user.Email,
+            name: user.Name
+        ) {
             AccessLevel = user.AccessLevel,
-            CreatedDate = user.CreatedDate,
-            WorkspaceMembers = user.WorkspaceMembers?.ToList() ?? new List<WorkspaceMember>(),
-            AssignedTasks = user.AssignedTasks?.ToList() ?? new List<TaskAssignee>(),
-            Comments = user.Comments?.ToList() ?? new List<Comment>()
+            CreatedDate = user.CreatedDate
         }).ToList();
 
         return Ok(userDtos);
@@ -182,14 +197,21 @@ public class UserController : ControllerBase {
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> UpdateUser(Guid userId, [FromBody] RegisterDto updateDto) {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
+        var currentUserId = ClaimsHelper.GetUserId(User);
+        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
+        if (currentUserId == null)
+            return BadRequest("User ID missing");
+
+        // Only allow users to update their own profile or admin to update any profile
+        if (userId != currentUserId && userAccess != AccessLevel.Admin)
+            return Forbid("You can only update your own profile");
+
         var user = await _context.Users
-            .Include(u => u.WorkspaceMembers)
-            .Include(u => u.AssignedTasks)
-            .Include(u => u.Comments)
             .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user == null)
@@ -206,22 +228,22 @@ public class UserController : ControllerBase {
         user.Username = updateDto.Username;
         user.Email = updateDto.Email;
         user.Name = updateDto.Name;
-        user.AccessLevel = updateDto.AccessLevel;
+
+        // Only admin can update access level
+        if (userAccess == AccessLevel.Admin)
+            user.AccessLevel = updateDto.AccessLevel;
 
         try {
             await _context.SaveChangesAsync();
 
-            var userDto = new User {
-                Id = user.Id,
-                Username = user.Username,
-                Email = user.Email,
-                Name = user.Name,
-                PasswordHash = user.PasswordHash,
+            var userDto = new UserDto(
+                id: user.Id,
+                username: user.Username,
+                email: user.Email,
+                name: user.Name
+            ) {
                 AccessLevel = user.AccessLevel,
-                CreatedDate = user.CreatedDate,
-                WorkspaceMembers = user.WorkspaceMembers?.ToList() ?? new List<WorkspaceMember>(),
-                AssignedTasks = user.AssignedTasks?.ToList() ?? new List<TaskAssignee>(),
-                Comments = user.Comments?.ToList() ?? new List<Comment>()
+                CreatedDate = user.CreatedDate
             };
 
             return Ok(userDto);
@@ -233,7 +255,17 @@ public class UserController : ControllerBase {
     [HttpDelete("{userId}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> DeleteUser(Guid userId) {
+        var currentUserId = ClaimsHelper.GetUserId(User);
+        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
+        if (currentUserId == null)
+            return BadRequest("User ID missing");
+
+        // Only allow users to delete their own profile or admin to delete any profile
+        if (userId != currentUserId && userAccess != AccessLevel.Admin)
+            return Forbid("You can only delete your own profile");
+
         var user = await _context.Users
             .Include(u => u.WorkspaceMembers)
             .FirstOrDefaultAsync(u => u.Id == userId);

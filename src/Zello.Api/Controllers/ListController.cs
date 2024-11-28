@@ -1,113 +1,233 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using Zello.Application.Dtos;
 using Zello.Domain.Entities;
-using Zello.Domain.Entities.Dto;
+using Zello.Domain.Entities.Api.User;
 using Zello.Infrastructure.Data;
 using Zello.Infrastructure.Helpers;
 
 namespace Zello.Api.Controllers;
 
+/// <summary>
+/// Controller for managing lists and their associated tasks
+/// </summary>
 [ApiController]
 [Route("api/v1/[controller]")]
 public sealed class ListController : ControllerBase {
     private readonly ApplicationDbContext _context;
 
+    /// <summary>
+    /// Initializes a new instance of the ListController
+    /// </summary>
+    /// <param name="context">The application database context</param>
     public ListController(ApplicationDbContext context) {
         _context = context;
     }
 
+    /// <summary>
+    /// Retrieves a specific list by its ID
+    /// </summary>
+    /// <param name="listId">The unique identifier of the list to retrieve</param>
+    /// <returns>The requested list if found and user has access</returns>
+    /// <response code="200">Returns the requested list</response>
+    /// <response code="403">User does not have permission to access this list</response>
+    /// <response code="404">List with specified ID was not found</response>
     [HttpGet("{listId}")]
     [ProducesResponseType(typeof(ListReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult GetListById(Guid listId) {
-        var list = _context.Lists.Find(listId);
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetListById(Guid listId) {
+        var userId = ClaimsHelper.GetUserId(User);
+        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
+        if (userId == null)
+            return BadRequest("User ID missing");
 
-        if (list == null) {
+        var list = await _context.Lists
+            .Include(l => l.Project)
+            .ThenInclude(p => p.Members)
+            .ThenInclude(pm => pm.WorkspaceMember)
+            .FirstOrDefaultAsync(l => l.Id == listId);
+
+        if (list == null)
             return NotFound($"List with ID {listId} not found");
-        }
 
-        return Ok(list);
+        bool hasAccess = userAccess == AccessLevel.Admin ||
+                         list.Project.Members.Any(pm =>
+                             pm.WorkspaceMember.UserId == userId
+                         );
+
+        if (!hasAccess)
+            return Forbid("User is not a member of this project");
+
+        return Ok(ListReadDto.FromEntity(list));
     }
 
+    /// <summary>
+    /// Retrieves all lists accessible to the current user
+    /// </summary>
+    /// <param name="projectId">Optional project ID to filter lists by project</param>
+    /// <returns>Collection of lists the user has access to</returns>
+    /// <response code="200">Returns all accessible lists</response>
+    /// <response code="403">User does not have permission to access lists</response>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<ListReadDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetAllLists([FromQuery] Guid? projectId = null) {
-        var lists = await _context.Lists
-            .Where(l => !projectId.HasValue || l.ProjectId == projectId.Value)
+        var userId = ClaimsHelper.GetUserId(User);
+        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
+        if (userId == null)
+            return BadRequest("User ID missing");
+
+        // Start with a query that includes project membership data
+        var query = _context.Lists
+            .Include(l => l.Project)
+            .ThenInclude(p => p.Members)
+            .ThenInclude(pm => pm.WorkspaceMember)
             .Include(l => l.Tasks)
             .ThenInclude(t => t.Assignees)
             .Include(l => l.Tasks)
             .ThenInclude(t => t.Comments)
+            .AsQueryable();
+
+        // Filter by project if specified
+        if (projectId.HasValue)
+            query = query.Where(l => l.ProjectId == projectId.Value);
+
+        // Filter to only show lists from projects where user is a member or is admin
+        query = query.Where(l =>
+            userAccess == AccessLevel.Admin ||
+            l.Project.Members.Any(pm =>
+                pm.WorkspaceMember.UserId == userId
+            )
+        );
+
+        var lists = await query
             .OrderBy(l => l.Position)
             .ToListAsync();
 
-        return Ok(lists);
+        return Ok(lists.Select(ListReadDto.FromEntity).ToList());
     }
 
+    /// <summary>
+    /// Updates an existing list
+    /// </summary>
+    /// <param name="listId">The unique identifier of the list to update</param>
+    /// <param name="updateList">The updated list data</param>
+    /// <returns>The updated list</returns>
+    /// <response code="200">List was successfully updated</response>
+    /// <response code="400">The request data is invalid</response>
+    /// <response code="403">User does not have permission to update this list</response>
+    /// <response code="404">List with specified ID was not found</response>
     [HttpPut("{listId}")]
     [ProducesResponseType(typeof(ListReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateList(Guid listId, [FromBody] ListCreateDto updateList) {
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpdateList(Guid listId, [FromBody] ListUpdateDto updateList) {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
+        var userId = ClaimsHelper.GetUserId(User);
+        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
+        if (userId == null)
+            return BadRequest("User ID missing");
+
         var existingList = await _context.Lists
+            .Include(l => l.Project)
+            .ThenInclude(p => p.Members)
+            .ThenInclude(pm => pm.WorkspaceMember)
             .FirstOrDefaultAsync(l => l.Id == listId);
 
         if (existingList == null)
             return NotFound($"List with ID {listId} not found");
 
-        // Update only the modifiable properties
-        var updatedList = updateList.ToEntity();
+        var projectMember = existingList.Project.Members
+            .FirstOrDefault(pm => pm.WorkspaceMember.UserId == userId);
 
-        _context.Lists.Update(updatedList);
+        // First check if user has access to the project
+        bool hasAccess = userAccess == AccessLevel.Admin ||
+                         (projectMember != null && projectMember.AccessLevel >= AccessLevel.Member);
+
+        if (!hasAccess)
+            return Forbid("Insufficient permissions to update lists");
+
+        // Ensure the list ID from the URL is used
+        updateList.Id = listId;
+        updateList.ToEntity(existingList);
         await _context.SaveChangesAsync();
 
-        return Ok(existingList);
+        return Ok(ListReadDto.FromEntity(existingList));
     }
 
+    /// <summary>
+    /// Updates the position of a list within its project
+    /// </summary>
+    /// <param name="listId">The unique identifier of the list to reposition</param>
+    /// <param name="updateList">The update data containing the new position</param>
+    /// <returns>The updated list</returns>
+    /// <response code="200">List position was successfully updated</response>
+    /// <response code="400">The requested position is invalid</response>
+    /// <response code="403">User does not have permission to update list positions</response>
+    /// <response code="404">List with specified ID was not found</response>
+    /// <response code="500">An error occurred while updating the list position</response>
     [HttpPut("{listId}/position")]
     [ProducesResponseType(typeof(ListReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateListPosition(Guid listId, [FromBody] int newPosition) {
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> UpdateListPosition(Guid listId,
+        [FromBody] ListUpdateDto updateList) {
+        var userId = ClaimsHelper.GetUserId(User);
+        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
+        if (userId == null)
+            return BadRequest("User ID missing");
+
         var list = await _context.Lists
+            .Include(l => l.Project)
+            .ThenInclude(p => p.Members)
+            .ThenInclude(pm => pm.WorkspaceMember)
             .FirstOrDefaultAsync(l => l.Id == listId);
 
         if (list == null)
             return NotFound($"List with ID {listId} not found");
+
+        var projectMember = list.Project.Members
+            .FirstOrDefault(pm => pm.WorkspaceMember.UserId == userId);
+
+        // Check if user has sufficient access
+        bool hasAccess = userAccess == AccessLevel.Admin ||
+                         (projectMember != null && projectMember.AccessLevel >= AccessLevel.Member);
+
+        if (!hasAccess)
+            return Forbid("Insufficient permissions to update list positions");
 
         var projectLists = await _context.Lists
             .Where(l => l.ProjectId == list.ProjectId)
             .OrderBy(l => l.Position)
             .ToListAsync();
 
-        // Validate position
-        if (newPosition < 0 || newPosition >= projectLists.Count)
+        if (updateList.Position < 0 || updateList.Position >= projectLists.Count)
             return BadRequest("Invalid position");
 
-        using var transaction = await _context.Database.BeginTransactionAsync();
         try {
             var oldPosition = list.Position;
-            if (newPosition < oldPosition) {
-                // Moving left: increment positions of lists between new and old positions
+            if (updateList.Position < oldPosition) {
                 var listsToUpdate = await _context.Lists
                     .Where(l => l.ProjectId == list.ProjectId &&
-                                l.Position >= newPosition &&
+                                l.Position >= updateList.Position &&
                                 l.Position < oldPosition)
                     .ToListAsync();
 
                 foreach (var l in listsToUpdate) {
                     l.Position++;
                 }
-            } else if (newPosition > oldPosition) {
-                // Moving right: decrement positions of lists between old and new positions
+            } else if (updateList.Position > oldPosition) {
                 var listsToUpdate = await _context.Lists
                     .Where(l => l.ProjectId == list.ProjectId &&
                                 l.Position > oldPosition &&
-                                l.Position <= newPosition)
+                                l.Position <= updateList.Position)
                     .ToListAsync();
 
                 foreach (var l in listsToUpdate) {
@@ -115,116 +235,70 @@ public sealed class ListController : ControllerBase {
                 }
             }
 
-            list.Position = newPosition;
+            list.Position = updateList.Position;
             await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
 
-            return Ok(list);
+            return Ok(ListReadDto.FromEntity(list));
         } catch (Exception) {
-            await transaction.RollbackAsync();
-            throw;
+            return StatusCode(500, "An error occurred while updating the list position");
         }
     }
 
-    // TODO: FIX THIS
-    // [HttpDelete("{listId}")]
-    // [ProducesResponseType(StatusCodes.Status204NoContent)]
-    // [ProducesResponseType(StatusCodes.Status404NotFound)]
-    // public IActionResult DeleteList(Guid listId) {
-    //   if (!TestData.TestListCollection.ContainsKey(listId))
-    //     return NotFound($"List with ID {listId} not found");
-
-    //   var list = TestData.TestListCollection[listId];
-
-    //   // Remove the list
-    //   TestData.TestListCollection.Remove(listId);
-
-    //   // Reorder remaining lists in the project
-    //   var projectLists = TestData.TestListCollection.Values
-    //       .Where(l => l.ProjectId == list.ProjectId)
-    //       .OrderBy(l => l.Position)
-    //       .ToList();
-
-    //   for (int i = 0; i < projectLists.Count; i++) {
-    //     projectLists[i].Position = i;
-    //     TestData.TestListCollection[projectLists[i].Id] = projectLists[i];
-    //   }
-
-    //   // Remove any tasks in this list
-    //   var tasksToRemove = TestData.TestTaskCollection.Values
-    //       .Where(t => t.ListId == listId)
-    //       .Select(t => t.Id)
-    //       .ToList();
-
-    //   foreach (var taskId in tasksToRemove) {
-    //     TestData.TestTaskCollection.Remove(taskId);
-    //   }
-
-    //   return NoContent();
-    // }
-
+    /// <summary>
+    /// Creates a new task in the specified list
+    /// </summary>
+    /// <param name="listId">The unique identifier of the list to add the task to</param>
+    /// <param name="createTask">The task data to create</param>
+    /// <returns>The created task</returns>
+    /// <response code="201">Task was successfully created</response>
+    /// <response code="400">The task data is invalid</response>
+    /// <response code="403">User does not have permission to create tasks in this list</response>
+    /// <response code="404">List with specified ID was not found</response>
+    /// <response code="500">An error occurred while creating the task</response>
     [HttpPost("{listId}/tasks")]
     [ProducesResponseType(typeof(TaskReadDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> CreateTask(Guid listId, [FromBody] TaskCreateDto createTask) {
-        if (!ModelState.IsValid)
+        if (!ModelState.IsValid) {
             return BadRequest(ModelState);
+        }
 
-        // Get user ID from claims
-        Guid? userId = ClaimsHelper.GetUserId(User);
+        var userId = ClaimsHelper.GetUserId(User);
+        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
         if (userId == null)
-            return BadRequest("User ID cannot be null.");
+            return BadRequest("User ID missing");
 
         try {
-            // Get the list including its project and workspace
             var list = await _context.Lists
                 .Include(l => l.Project)
-                .ThenInclude(p => p.Workspace)
-                .ThenInclude(w => w.Members)
+                .ThenInclude(p => p.Members)
+                .ThenInclude(pm => pm.WorkspaceMember)
                 .FirstOrDefaultAsync(l => l.Id == listId);
 
             if (list == null)
                 return NotFound($"List with ID {listId} not found");
 
-            // Check if user is a workspace member
-            var isMember = list.Project.Workspace.Members
-                .Any(m => m.UserId == userId.Value);
+            // Check project membership instead of workspace membership
+            bool hasAccess = userAccess == AccessLevel.Admin ||
+                             list.Project.Members.Any(pm =>
+                                 pm.WorkspaceMember.UserId == userId
+                             );
 
-            if (!isMember)
-                return Forbid("User is not a member of the workspace");
+            if (!hasAccess)
+                return Forbid("User is not a member of this project");
 
-            // Create new task entity
-            var task = new WorkTask {
-                Id = Guid.NewGuid(),
-                Name = createTask.Name,
-                Status = createTask.Status,
-                Priority = createTask.Priority,
-                Deadline = createTask.Deadline,
-                ListId = listId,
-                ProjectId = list.ProjectId,
-                CreatedDate = DateTime.UtcNow
-            };
+            // Set both ListId and ProjectId
+            createTask.ListId = listId;
+            createTask.ProjectId = list.ProjectId;
 
-            // Add to database
-            _context.Tasks.Add(task);
+            var task = createTask.ToEntity();
+            await _context.Tasks.AddAsync(task);
             await _context.SaveChangesAsync();
 
-            // Map to DTO for response
-            var taskDto = new TaskReadDto {
-                Id = task.Id,
-                Name = task.Name,
-                Description = task.Description,
-                Status = task.Status,
-                Priority = task.Priority,
-                Deadline = task.Deadline,
-                ListId = task.ListId,
-                ProjectId = task.ProjectId,
-                CreatedDate = task.CreatedDate,
-                Comments = new List<CommentReadDto>(),
-                Assignees = new List<TaskAssigneeDto>()
-            };
+            var taskDto = TaskReadDto.FromEntity(task);
 
             return CreatedAtAction(
                 nameof(GetListById),
@@ -232,58 +306,57 @@ public sealed class ListController : ControllerBase {
                 taskDto
             );
         } catch (Exception) {
-            // Log the exception
             return StatusCode(500, "An error occurred while creating the task");
         }
     }
 
+    /// <summary>
+    /// Retrieves all tasks in a specific list
+    /// </summary>
+    /// <param name="listId">The unique identifier of the list</param>
+    /// <returns>Collection of tasks in the specified list</returns>
+    /// <response code="200">Returns all tasks in the list</response>
+    /// <response code="403">User does not have permission to access this list</response>
+    /// <response code="404">List with specified ID was not found</response>
+    /// <response code="500">An error occurred while retrieving tasks</response>
     [HttpGet("{listId}/tasks")]
     [ProducesResponseType(typeof(IEnumerable<TaskReadDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetListTasks(Guid listId) {
-        try {
-            // Check if list exists
-            var listExists = await _context.Lists
-                .AnyAsync(l => l.Id == listId);
+        var userId = ClaimsHelper.GetUserId(User);
+        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
+        if (userId == null)
+            return BadRequest("User ID missing");
 
-            if (!listExists)
+        try {
+            var list = await _context.Lists
+                .Include(l => l.Project)
+                .ThenInclude(p => p.Members)
+                .ThenInclude(pm => pm.WorkspaceMember)
+                .FirstOrDefaultAsync(l => l.Id == listId);
+
+            if (list == null)
                 return NotFound($"List with ID {listId} not found");
 
-            // Get tasks with related data
+            bool hasAccess = userAccess == AccessLevel.Admin ||
+                             list.Project.Members.Any(pm =>
+                                 pm.WorkspaceMember.UserId == userId
+                             );
+
+            if (!hasAccess)
+                return Forbid("User is not a member of this project");
+
             var tasks = await _context.Tasks
                 .Where(t => t.ListId == listId)
                 .Include(t => t.Assignees)
                 .Include(t => t.Comments)
                 .OrderBy(t => t.CreatedDate)
-                .Select(t => new TaskReadDto {
-                    Id = t.Id,
-                    Name = t.Name,
-                    Description = t.Description,
-                    Status = t.Status,
-                    Priority = t.Priority,
-                    Deadline = t.Deadline,
-                    ListId = t.ListId,
-                    ProjectId = t.ProjectId,
-                    CreatedDate = t.CreatedDate,
-                    Assignees = t.Assignees.Select(a => new TaskAssigneeDto {
-                        Id = a.Id,
-                        TaskId = a.TaskId,
-                        UserId = a.UserId,
-                        AssignedDate = a.AssignedDate
-                    }).ToList(),
-                    Comments = t.Comments.Select(c => new CommentReadDto {
-                        Id = c.Id,
-                        Content = c.Content,
-                        CreatedDate = c.CreatedDate,
-                        TaskId = c.TaskId,
-                        UserId = c.UserId
-                    }).ToList()
-                })
                 .ToListAsync();
 
-            return Ok(tasks);
+            return Ok(tasks.Select(TaskReadDto.FromEntity).ToList());
         } catch (Exception) {
-            // Log the exception
             return StatusCode(500, "An error occurred while retrieving tasks");
         }
     }

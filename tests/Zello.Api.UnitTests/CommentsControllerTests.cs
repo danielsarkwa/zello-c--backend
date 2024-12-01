@@ -121,7 +121,7 @@ public class CommentsControllerTests {
         // Debug info
         if (result is BadRequestObjectResult badResult) {
             var message = badResult.Value?.ToString();
-            Assert.False(true, $"Got BadRequest with message: {message}");
+            Assert.Fail($"Got BadRequest with message: {message}");
         }
 
         // Assert

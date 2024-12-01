@@ -13,9 +13,11 @@ The following diagram illustrates the relationships between the entities in the 
 
 ```mermaid
 erDiagram
-    WORKSPACE ||--o| PROJECT : contains
+    USER ||--o{ WORKSPACE : Owns
+    WORKSPACE ||--o{ PROJECT : contains
     PROJECT ||--o{ LIST : contains
-    LIST ||--o| TASK : contains
+    LIST ||--o{ TASK : contains
+    TASK ||--o{ COMMENTS : contains
 ```
 
 ### Database Relationships Diagram
@@ -26,31 +28,28 @@ erDiagram
     user {
         GUID Id PK "Primary Key"
         string Username "Required, MaxLength: 30"
+        string Name "Required, MaxLength: 30"
         string Email "Required, MaxLength: 100, Unique"
         string PasswordHash "Required"
-        boolean IsActive "Default: true"
+        GUID AccessLevel FK "Enum e.g., Admin, Member, Owner, Guest"
         datetime CreatedDate "Default: Current Date"
     }
-
     workspace {
         GUID Id PK "Primary Key"
         string Name "Required, MaxLength: 100"
         GUID OwnerId FK "Foreign Key referencing User"
         datetime CreatedDate "Default: Current Date"
     }
-
     project {
         GUID Id PK "Primary Key"
         GUID WorkspaceId FK "Foreign Key referencing Workspace"
         string Name "Required, MaxLength: 100"
         string Description "Optional, MaxLength: 500"
-        datetime StartDate "Required"
+        datetime StartDate "Optional"
         datetime EndDate "Optional"
         string Status "Enum: NotStarted, InProgress, Completed"
         datetime CreatedDate "Default: Current Date"
-        datetime UpdatedDate "Default: Null"
     }
-
     list {
         GUID Id PK "Primary Key"
         GUID ProjectId FK "Foreign Key referencing Project"
@@ -58,95 +57,57 @@ erDiagram
         int Position "Position of the list on the board"
         datetime CreatedDate "Default: Current Date"
     }
-
     task {
         GUID Id PK "Primary Key"
         string Name "Required, MaxLength: 100"
         string Description "Optional, MaxLength: 500"
         string Status "Enum: NotStarted, InProgress, Completed"
         string Priority "Enum: Low, Medium, High, Urgent"
-        datetime Deadline "Default: Null"
+        datetime Deadline "Optional"
         datetime CreatedDate "Default: Current Date"
-        datetime UpdatedDate "Default: Null"
         GUID ProjectId FK "Foreign Key referencing Project"
         GUID ListId FK "Foreign Key referencing List"
     }
-
     comment {
         GUID Id PK "Primary Key"
         GUID TaskId FK "Optional Foreign Key referencing Task"
         GUID UserId FK "Foreign Key referencing User"
         string Content "Required, MaxLength: 500"
         datetime CreatedDate "Default: Current Date"
-        datetime UpdatedDate "Default: Null"
     }
-
     workspace_member {
         GUID Id PK "Primary Key"
         GUID WorkspaceId FK "Foreign Key referencing Workspace"
         GUID UserId FK "Foreign Key referencing User"
-        GUID RoleId FK "Foreign Key referencing ROLES e.g., Admin, Member, Owner, Guest"
+        GUID AccessLevel FK "Enum e.g., Admin, Member, Owner, Guest"
         datetime CreatedDate "Default: Current Date"
     }
-
     project_member {
         GUID Id PK "Primary Key"
         GUID ProjectId FK "Foreign Key referencing Project"
-        GUID UserId FK "Foreign Key referencing User"
-        GUID RoleId FK "Foreign Key referencing ROLES e.g., Admin, Member, Owner, Guest"
+        GUID WorkspaceMemberId FK "Foreign Key referencing workspace_member"
+        GUID AccessLevel FK "Enum e.g., Admin, Member, Owner, Guest"
         datetime CreatedDate "Default: Current Date"
     }
-
     task_assignee {
         GUID Id PK "Primary Key"
         GUID TaskId FK "Foreign Key referencing Task"
         GUID UserId FK "Foreign Key referencing User"
         datetime AssignedDate "Default: Current Date"
     }
-
-    role {
-        GUID Id PK "Primary Key"
-        string Name "Required, Enum: Admin, Member, Owner, Guest"
-        string Description "Optional, Description of the role"
-    }
-
-    permission {
-        GUID Id PK "Primary Key"
-        string Name "Required, Enum: View, Edit, Delete, Create"
-        string Description "Optional, Description of the permission"
-    }
-
-    role_permission {
-        GUID Id PK "Primary Key"
-        GUID RoleId FK "Foreign Key referencing ROLES"
-        GUID PermissionId FK "Foreign Key referencing PERMISSIONS"
-        string Entity "Enum: Workspace, Project, Task" 
-        string Action "Enum: View, Edit, Delete, Create"
-    }
-
-    user ||--o| workspace_member : "belongs to"
-    user ||--o| project_member : "belongs to"
-    user ||--o| comment : "writes"
-    user ||--o| task_assignee : "is assigned"
-
+    
+    user ||--o{ workspace_member : "belongs to"
+    user ||--o{ comment : "writes"
+    user ||--o{ task_assignee : "is assigned"
+    user ||--o{ workspace : "owns"
     workspace ||--o| workspace_member : "has members"
     workspace ||--o| project : "contains"
-
     project ||--o| project_member : "has members"
+    workspace_member ||--o{ project_member: "belongs to"
     project ||--o{ list : "contains"
-
-    list ||--o| task : "contains"
-
+    list ||--o{ task : "contains"
     task ||--o{ task_assignee : "has assignees"
-    task ||--o| comment : "has comments"
-
-    workspace_member ||--o| role : "has role"
-
-    project_member ||--o| role : "has role"
-
-    role ||--o| permission : "has"
-
-    permission ||--o| role_permission : "grants"  
+    task ||--o{ comment : "has comments"
 ```
 
 ### Database Entities Definition
@@ -168,20 +129,17 @@ erDiagram
 
 ### Database Relationship Summary
 
-| Entities                            | Relationship Type | Description                                                                                                                                        |
-|-------------------------------------|-------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| `user ↔ workspace_member`           | One-to-Many       | A user can be a member of multiple workspaces, but each workspace member corresponds to only one user.                                             |
-| `user ↔ project_member`             | One-to-Many       | A user can be a member of multiple projects, but each project member corresponds to only one user.                                                 |
-| `user ↔ comment`                    | One-to-Many       | A user can write multiple comments, but each comment is associated with a single user.                                                             |
-| `user ↔ task_assignee`              | One-to-Many       | A user can be assigned multiple tasks, but each task assignee corresponds to only one user.                                                        |
-| `workspace ↔ workspace_member`      | One-to-Many       | A workspace can have multiple members, but each workspace member corresponds to only one workspace.                                                |
-| `workspace ↔ project`               | One-to-Many       | A workspace can contain multiple projects, but each project belongs to only one workspace.                                                         |
-| `project ↔ project_member`          | One-to-Many       | A project can have multiple members, but each project member corresponds to only one project.                                                      |
-| `project ↔ list`                    | One-to-Many       | A project can contain multiple lists, but each list belongs to only one project.                                                                   |
-| `list ↔ task`                       | One-to-Many       | A list can contain multiple tasks, but each task belongs to only one list.                                                                         |
-| `task ↔ task_assignee`              | One-to-Many       | A task can have multiple assignees, but each task assignee corresponds to only one task.                                                           |
-| `task ↔ comment`                    | One-to-Many       | A task can have multiple comments, but each comment corresponds to only one task.                                                                  |
-| `workspace_member ↔ role`           | Many-to-One       | A workspace member is assigned a specific role, but each role can be assigned to multiple members within a workspace.                              |
-| `project_member ↔ role`             | Many-to-One       | A project member is assigned a specific role, but each role can be assigned to multiple members within a project.                                  |
-| `role ↔ permission`                 | Many-to-Many      | A role can have multiple permissions, and a permission can be assigned to multiple roles, facilitated by `role_permission`.                       |
-| `permission ↔ role_permission`      | One-to-Many       | A permission can be referenced by multiple `role_permission` entries, each mapping a permission to a role for specific actions on entities.       |
+| Entities                          | Relationship Type | Description                                                                                                   |
+|-----------------------------------|-------------------|---------------------------------------------------------------------------------------------------------------|
+| `user` ↔ `workspace_member`       | One-to-Many       | A user can be a member of multiple workspaces, but each workspace member corresponds to only one user.        |
+| `user` ↔ `workspace`              | One-to-Many       | A user can own multiple workspaces, but each workspace is owned by a single user.                             |
+| `user` ↔ `comment`                | One-to-Many       | A user can write multiple comments, but each comment is written by one user.                                  |
+| `user` ↔ `task_assignee`          | One-to-Many       | A user can be assigned to multiple tasks, but each task assignment references one user.                       |
+| `workspace` ↔ `workspace_member`  | One-to-Many       | A workspace can have multiple members, but each membership references one workspace.                          |
+| `workspace` ↔ `project`           | One-to-Many       | A workspace can contain multiple projects, but each project belongs to one workspace.                         |
+| `project` ↔ `project_member`      | One-to-Many       | A project can have multiple members, but each project membership references one project.                      |
+| `workspace_member` ↔ `project_member` | One-to-Many    | A workspace member can belong to multiple projects, but each project member references one workspace member.  |
+| `project` ↔ `list`                | One-to-Many       | A project can contain multiple lists, but each list belongs to one project.                                   |
+| `list` ↔ `task`                   | One-to-Many       | A list can contain multiple tasks, but each task belongs to one list.                                         |
+| `task` ↔ `task_assignee`          | One-to-Many       | A task can have multiple assignees, but each task assignment references one task.                             |
+| `task` ↔ `comment`                | One-to-Many       | A task can have multiple comments, but each comment references one task.                                      |

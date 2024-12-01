@@ -7,8 +7,7 @@ namespace Zello.Application.Dtos;
 
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using Zello.Domain.Entities.Dto;
-using Zello.Domain.Enums;
+using Domain.Enums;
 
 /// <summary>
 /// Data transfer object for reading task information

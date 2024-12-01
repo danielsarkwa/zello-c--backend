@@ -1,12 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Mvc;
 using Zello.Application.Dtos;
 using Zello.Application.Features.Tasks.Models;
-using Zello.Domain.Entities;
 using Zello.Domain.Entities.Api.User;
-using Zello.Domain.Entities.Dto;
-using Zello.Infrastructure.Data;
 using Zello.Infrastructure.Helpers;
 
 namespace Zello.Api.Controllers;
@@ -156,7 +151,7 @@ public sealed class TaskController : ControllerBase {
     /// <response code="403">User does not have access to move this task</response>
     /// <response code="404">Task not found</response>
     [HttpPost("{taskId}/move")]
-    [ProducesResponseType(typeof(TaskDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(TaskReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

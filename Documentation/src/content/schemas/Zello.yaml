@@ -1443,13 +1443,13 @@ paths:
           content:
             text/plain:
               schema:
-                $ref: '#/components/schemas/TaskDto'
+                $ref: '#/components/schemas/TaskReadDto'
             application/json:
               schema:
-                $ref: '#/components/schemas/TaskDto'
+                $ref: '#/components/schemas/TaskReadDto'
             text/json:
               schema:
-                $ref: '#/components/schemas/TaskDto'
+                $ref: '#/components/schemas/TaskReadDto'
         '400':
           description: Invalid move request or target list does not exist
           content:
@@ -2714,34 +2714,6 @@ components:
           minLength: 3
           type: string
       additionalProperties: false
-    CommentDto:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        taskId:
-          type: string
-          format: uuid
-          nullable: true
-        userId:
-          type: string
-          format: uuid
-        content:
-          type: string
-          nullable: true
-        createdDate:
-          type: string
-          format: date-time
-        updatedDate:
-          type: string
-          format: date-time
-          nullable: true
-        task:
-          $ref: '#/components/schemas/TaskDto'
-        user:
-          $ref: '#/components/schemas/UserDto'
-      additionalProperties: false
     CommentReadDto:
       required:
         - content
@@ -2796,35 +2768,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TaskCreateDto'
-          nullable: true
-      additionalProperties: false
-    ListDto:
-      required:
-        - name
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        projectId:
-          type: string
-          format: uuid
-        name:
-          maxLength: 100
-          minLength: 1
-          type: string
-        position:
-          type: integer
-          format: int32
-        createdDate:
-          type: string
-          format: date-time
-        project:
-          $ref: '#/components/schemas/ProjectDto'
-        tasks:
-          type: array
-          items:
-            $ref: '#/components/schemas/TaskDto'
           nullable: true
       additionalProperties: false
     ListReadDto:
@@ -2969,54 +2912,6 @@ components:
         status:
           $ref: '#/components/schemas/ProjectStatus'
       additionalProperties: false
-    ProjectDto:
-      required:
-        - name
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        workspaceId:
-          type: string
-          format: uuid
-        name:
-          maxLength: 100
-          minLength: 1
-          type: string
-        description:
-          maxLength: 500
-          type: string
-          nullable: true
-        startDate:
-          type: string
-          format: date-time
-        endDate:
-          type: string
-          format: date-time
-          nullable: true
-        status:
-          $ref: '#/components/schemas/ProjectStatus'
-        createdDate:
-          type: string
-          format: date-time
-        updatedDate:
-          type: string
-          format: date-time
-          nullable: true
-        workspace:
-          $ref: '#/components/schemas/WorkspaceDto'
-        members:
-          type: array
-          items:
-            $ref: '#/components/schemas/ProjectMemberDto'
-          nullable: true
-        lists:
-          type: array
-          items:
-            $ref: '#/components/schemas/ListDto'
-          nullable: true
-      additionalProperties: false
     ProjectMemberCreateDto:
       type: object
       properties:
@@ -3028,28 +2923,6 @@ components:
           format: uuid
         accessLevel:
           $ref: '#/components/schemas/AccessLevel'
-      additionalProperties: false
-    ProjectMemberDto:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        projectId:
-          type: string
-          format: uuid
-        workspaceMemberId:
-          type: string
-          format: uuid
-        accessLevel:
-          $ref: '#/components/schemas/AccessLevel'
-        createdDate:
-          type: string
-          format: date-time
-        project:
-          $ref: '#/components/schemas/ProjectDto'
-        workspaceMember:
-          $ref: '#/components/schemas/WorkspaceMemberDto'
       additionalProperties: false
     ProjectMemberReadDto:
       type: object
@@ -3139,26 +3012,6 @@ components:
         status:
           $ref: '#/components/schemas/ProjectStatus'
       additionalProperties: false
-    TaskAssigneeDto:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        taskId:
-          type: string
-          format: uuid
-        userId:
-          type: string
-          format: uuid
-        assignedDate:
-          type: string
-          format: date-time
-        task:
-          $ref: '#/components/schemas/TaskDto'
-        user:
-          $ref: '#/components/schemas/UserDto'
-      additionalProperties: false
     TaskAssigneeReadDto:
       type: object
       properties:
@@ -3208,58 +3061,6 @@ components:
         listId:
           type: string
           format: uuid
-      additionalProperties: false
-    TaskDto:
-      required:
-        - name
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          maxLength: 100
-          minLength: 1
-          type: string
-        description:
-          maxLength: 500
-          type: string
-          nullable: true
-        status:
-          $ref: '#/components/schemas/CurrentTaskStatus'
-        priority:
-          $ref: '#/components/schemas/Priority'
-        deadline:
-          type: string
-          format: date-time
-          nullable: true
-        createdDate:
-          type: string
-          format: date-time
-        updatedDate:
-          type: string
-          format: date-time
-          nullable: true
-        projectId:
-          type: string
-          format: uuid
-        listId:
-          type: string
-          format: uuid
-        project:
-          $ref: '#/components/schemas/ProjectDto'
-        list:
-          $ref: '#/components/schemas/ListDto'
-        assignees:
-          type: array
-          items:
-            $ref: '#/components/schemas/TaskAssigneeDto'
-          nullable: true
-        comments:
-          type: array
-          items:
-            $ref: '#/components/schemas/CommentDto'
-          nullable: true
       additionalProperties: false
     TaskReadDto:
       type: object
@@ -3366,57 +3167,6 @@ components:
         accessLevel:
           $ref: '#/components/schemas/AccessLevel'
       additionalProperties: false
-    UserDto:
-      required:
-        - accessLevel
-        - email
-        - name
-        - passwordHash
-        - username
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        username:
-          maxLength: 50
-          minLength: 1
-          type: string
-        name:
-          maxLength: 100
-          minLength: 1
-          type: string
-        email:
-          maxLength: 100
-          minLength: 1
-          type: string
-          format: email
-        passwordHash:
-          minLength: 1
-          type: string
-        isActive:
-          type: boolean
-        createdDate:
-          type: string
-          format: date-time
-        workspaceMembers:
-          type: array
-          items:
-            $ref: '#/components/schemas/WorkspaceMemberDto'
-          nullable: true
-        assignedTasks:
-          type: array
-          items:
-            $ref: '#/components/schemas/TaskAssigneeDto'
-          nullable: true
-        comments:
-          type: array
-          items:
-            $ref: '#/components/schemas/CommentDto'
-          nullable: true
-        accessLevel:
-          $ref: '#/components/schemas/AccessLevel'
-      additionalProperties: false
     UserReadDto:
       type: object
       properties:
@@ -3464,39 +3214,6 @@ components:
           minLength: 3
           type: string
       additionalProperties: false
-    WorkspaceDto:
-      required:
-        - name
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          maxLength: 100
-          minLength: 1
-          type: string
-        description:
-          maxLength: 500
-          type: string
-          nullable: true
-        ownerId:
-          type: string
-          format: uuid
-        createdDate:
-          type: string
-          format: date-time
-        projects:
-          type: array
-          items:
-            $ref: '#/components/schemas/ProjectDto'
-          nullable: true
-        members:
-          type: array
-          items:
-            $ref: '#/components/schemas/WorkspaceMemberDto'
-          nullable: true
-      additionalProperties: false
     WorkspaceMemberCreateDto:
       required:
         - accessLevel
@@ -3508,28 +3225,6 @@ components:
           format: uuid
         accessLevel:
           $ref: '#/components/schemas/AccessLevel'
-      additionalProperties: false
-    WorkspaceMemberDto:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        workspaceId:
-          type: string
-          format: uuid
-        userId:
-          type: string
-          format: uuid
-        accessLevel:
-          $ref: '#/components/schemas/AccessLevel'
-        createdDate:
-          type: string
-          format: date-time
-        workspace:
-          $ref: '#/components/schemas/WorkspaceDto'
-        user:
-          $ref: '#/components/schemas/UserDto'
       additionalProperties: false
     WorkspaceMemberReadDto:
       type: object

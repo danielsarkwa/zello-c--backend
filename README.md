@@ -3,6 +3,8 @@
 A task management system built with .NET 8 and PostgreSQL. Inspired by Trello, Zello allows teams to organize projects using boards, lists, and cards.
 
 For additional documentation visit: [Zello Documentation](https://kelo221.github.io/fs19_CSharp_Teamwork/)
+
+Server has been deployed on https://zello123-b0bracfcbsgaa5gp.northeurope-01.azurewebsites.net
 ## Features
 - User authentication and authorization with JWT
 - Workspaces for team organization
@@ -16,9 +18,9 @@ For additional documentation visit: [Zello Documentation](https://kelo221.github
 3. Run the application - the database will be automatically created and seeded with sample data
 
 ## Default Users
-- Admin: username: `admin`, password: `admin`
-- Owner: username: `john`, password: `john`
-- Member: username: `jane`, password: `jane`
+- Admin: username: `admin1234`, password: `admin1234`
+- Owner: username: `johnjohn`, password: `johnjohn`
+- Member: username: `janejane`, password: `janejane`
 
 ## ERD
 
@@ -132,8 +134,6 @@ erDiagram
 | **project_member**   | Represents a user's membership in a project with a specific role. |
 | **task_assignee**    | Represents the assignment of a task to a user.                     |
 | **role**             | Represents a role that defines a user's permissions in a workspace or project. A role can be Admin, Member, Owner or Guest |
-| **permission**       | Represents a specific action or right that can be granted to a role. |
-| **role_permission**  | Represents the assignment of a permission to a role for specific actions on an entity. |
 
 ### Database Relationship Summary
 

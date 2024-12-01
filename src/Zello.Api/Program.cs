@@ -28,8 +28,7 @@ var password = builder.Configuration["NEON_DB_PASSWORD"];
 Console.WriteLine($"Password length: {password?.Length ?? 0}");
 
 // Manually construct connection string
-var manualConnectionString = new NpgsqlConnectionStringBuilder
-{
+var manualConnectionString = new NpgsqlConnectionStringBuilder {
     Host = "ep-shy-silence-a2w59vfl.eu-central-1.aws.neon.tech",
     Database = "ZelloDB",
     Username = "ZelloDB_owner",

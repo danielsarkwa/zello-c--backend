@@ -16,12 +16,14 @@ public sealed class CommentsController : ControllerBase {
     private readonly ICommentService _commentService;
     private readonly IAuthorizationService _authorizationService;
 
+
     /// <summary>
     /// Initializes a new instance of the CommentsController.
     /// </summary>
     /// <param name="commentService">The controller service.</param>
     /// <param name="authorizationService">The authorization service.</param>
-    public CommentsController(ICommentService commentService, IAuthorizationService authorizationService) {
+    public CommentsController(ICommentService commentService,
+        IAuthorizationService authorizationService) {
         _commentService = commentService;
         _authorizationService = authorizationService;
     }
@@ -39,11 +41,18 @@ public sealed class CommentsController : ControllerBase {
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetComments([FromQuery] Guid? taskId = null) {
-        if (taskId.HasValue) {
+        if (!taskId.HasValue)
+            return BadRequest("Task ID is required.");
+
+        var userId = ClaimsHelper.GetUserId(User);
+        if (userId == null)
+            return BadRequest("User ID missing from claims");
+
+        try {
             var comments = await _commentService.GetCommentsByTaskIdAsync(taskId.Value);
             return Ok(comments);
-        } else {
-            return BadRequest("Task ID is required.");
+        } catch (Exception ex) {
+            return BadRequest(ex.Message);
         }
     }
 
@@ -69,27 +78,21 @@ public sealed class CommentsController : ControllerBase {
 
         try {
             var commentDto = await _commentService.GetCommentByIdAsync(commentId);
+            if (commentDto == null)
+                return NotFound($"Comment with ID {commentId} not found");
 
-            var comment = new Comment {
-                Id = commentDto.Id,
-                TaskId = commentDto.TaskId,
-                Content = commentDto.Content,
-                CreatedDate = commentDto.CreatedDate,
-                UserId = commentDto.UserId
-            };
-
-            // bool hasAccess = await _userService.HasCommentAccessAsync(userId.Value, comment, userAccess);
-            bool hasAccess = await _authorizationService.AuthorizeCommentAccessAsync(userId.Value, commentId, userAccess);
-
-            if (!hasAccess) {
+            bool hasAccess =
+                await _authorizationService.AuthorizeCommentAccessAsync(userId.Value, commentId,
+                    userAccess);
+            if (!hasAccess)
                 return Forbid("User is not a member of this project");
-            }
 
             return Ok(commentDto);
         } catch (Exception ex) {
             return NotFound(ex.Message);
         }
     }
+
 
     /// <summary>
     /// Creates a new comment on a task.
@@ -126,33 +129,37 @@ public sealed class CommentsController : ControllerBase {
             return BadRequest("Comment content cannot be empty");
 
         var userId = ClaimsHelper.GetUserId(User);
-        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
         if (userId == null)
             return BadRequest("User ID missing");
 
         try {
-            var commentDto = await _commentService.CreateCommentAsync(commentCreateDto, userId.Value);
+            // Create the comment first
+            var commentDto =
+                await _commentService.CreateCommentAsync(commentCreateDto, userId.Value);
 
-            var comment = new Comment {
-                Id = commentDto.Id,
-                TaskId = commentDto.TaskId,
-                Content = commentDto.Content,
-                CreatedDate = commentDto.CreatedDate,
-                UserId = commentDto.UserId
-            };
+            // Get the task's project for authorization
+            var taskDetails = await _commentService.GetTaskProjectDetailsAsync(commentDto.TaskId);
+            if (taskDetails == null)
+                return NotFound("Related task not found");
 
-            bool hasAccess = await _authorizationService.AuthorizeProjectAccessAsync(userId.Value, comment.Task.List.Project.Id, AccessLevel.Member);
+            // Check if user has access to the project
+            bool hasAccess = await _authorizationService.AuthorizeProjectAccessAsync(
+                userId.Value,
+                taskDetails.ProjectId,
+                AccessLevel.Member);
 
             if (!hasAccess)
                 return Forbid("User is not a member of this project");
 
-            return CreatedAtAction(nameof(GetCommentById), new { commentId = commentDto.Id }, commentDto);
+            return CreatedAtAction(nameof(GetCommentById), new { commentId = commentDto.Id },
+                commentDto);
         } catch (Exception ex) {
             if (ex.Message.Contains("not found"))
                 return NotFound(ex.Message);
             return BadRequest(ex.Message);
         }
     }
+
 
     /// <summary>
     /// Updates an existing comment.
@@ -190,32 +197,40 @@ public sealed class CommentsController : ControllerBase {
             return BadRequest("User ID missing");
 
         try {
-            var commentDto = await _commentService.UpdateCommentAsync(commentId, commentUpdateDto);
+            // Get the existing comment
+            var existingComment = await _commentService.GetCommentByIdAsync(commentId);
+            if (existingComment == null)
+                return NotFound($"Comment with ID {commentId} not found");
 
-            var comment = new Comment {
-                Id = commentDto.Id,
-                TaskId = commentDto.TaskId,
-                Content = commentDto.Content,
-                CreatedDate = commentDto.CreatedDate,
-                UserId = commentDto.UserId
-            };
+            // Get the task's project for authorization
+            var taskDetails =
+                await _commentService.GetTaskProjectDetailsAsync(existingComment.TaskId);
+            if (taskDetails == null)
+                return NotFound("Related task not found");
 
-            bool hasAccess = await _authorizationService.AuthorizeProjectAccessAsync(userId.Value, comment.Task.List.Project.Id, AccessLevel.Member);
+            // Check project access
+            bool hasAccess = await _authorizationService.AuthorizeProjectAccessAsync(
+                userId.Value,
+                taskDetails.ProjectId,
+                AccessLevel.Member);
 
             if (!hasAccess)
                 return Forbid("User is not a member of this project");
 
-            // Additional check: only allow comment owner or admin to update
-            if (comment.UserId != userId && userAccess != AccessLevel.Admin)
+            // Check if user owns the comment or is admin
+            if (existingComment.UserId != userId && userAccess != AccessLevel.Admin)
                 return Forbid("Only the comment owner or an admin can update this comment");
 
-            return Ok(commentDto);
+            var updatedComment =
+                await _commentService.UpdateCommentAsync(commentId, commentUpdateDto);
+            return Ok(updatedComment);
         } catch (Exception ex) {
             if (ex.Message.Contains("not found"))
                 return NotFound(ex.Message);
             return BadRequest(ex.Message);
         }
     }
+
 
     /// <summary>
     /// Deletes a specific comment.
@@ -241,28 +256,30 @@ public sealed class CommentsController : ControllerBase {
             return BadRequest("User ID missing");
 
         try {
-            // get the comment
-            var commentDto = await _commentService.GetCommentByIdAsync(commentId);
+            // Get the comment
+            var comment = await _commentService.GetCommentByIdAsync(commentId);
+            if (comment == null)
+                return NotFound($"Comment with ID {commentId} not found");
 
-            var comment = new Comment {
-                Id = commentDto.Id,
-                TaskId = commentDto.TaskId,
-                Content = commentDto.Content,
-                CreatedDate = commentDto.CreatedDate,
-                UserId = commentDto.UserId
-            };
+            // Get the task's project for authorization
+            var taskDetails = await _commentService.GetTaskProjectDetailsAsync(comment.TaskId);
+            if (taskDetails == null)
+                return NotFound("Related task not found");
 
-            bool hasAccess = await _authorizationService.AuthorizeProjectAccessAsync(userId.Value, comment.Task.List.Project.Id, AccessLevel.Member);
+            // Check project access
+            bool hasAccess = await _authorizationService.AuthorizeProjectAccessAsync(
+                userId.Value,
+                taskDetails.ProjectId,
+                AccessLevel.Member);
 
             if (!hasAccess)
                 return Forbid("User is not a member of this project");
 
-            // Additional check: only allow comment owner or admin to delete
+            // Check if user owns the comment or is admin
             if (comment.UserId != userId && userAccess != AccessLevel.Admin)
                 return Forbid("Only the comment owner or an admin can delete this comment");
 
             await _commentService.DeleteCommentAsync(commentId);
-
             return NoContent();
         } catch (Exception ex) {
             if (ex.Message.Contains("not found"))

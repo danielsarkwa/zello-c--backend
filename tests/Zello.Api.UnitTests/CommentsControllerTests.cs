@@ -1,182 +1,215 @@
-﻿// using System.Security.Claims;
-// using Microsoft.AspNetCore.Http;
-// using Microsoft.AspNetCore.Mvc;
-// using Microsoft.EntityFrameworkCore;
-// using Zello.Api.Controllers;
-// using Zello.Application.Features.Comments.Models;
-// using Zello.Domain.Entities;
-// using Zello.Domain.Entities.Api.User;
-// using Zello.Domain.Entities.Requests;
-// using Zello.Infrastructure.Data;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Moq;
+using Zello.Api.Controllers;
+using Zello.Application.Dtos;
+using Zello.Application.ServiceInterfaces;
+using Zello.Domain.Entities.Api.User;
 
-// namespace Zello.Api.UnitTests;
+public class CommentsControllerTests {
+    private readonly CommentsController _controller;
+    private readonly Mock<ICommentService> _mockCommentService;
+    private readonly Mock<IAuthorizationService> _mockAuthorizationService;
+    private readonly Guid _testTaskId = Guid.NewGuid();
+    private readonly Guid _testUserId = Guid.NewGuid();
+    private readonly Guid _testProjectId = Guid.NewGuid();
 
-// public class CommentsControllerTests : IDisposable {
-//     private readonly CommentsController _controller;
-//     private readonly ApplicationDbContext _context;
-//     private Guid _testTaskId;
-//     private Guid _testUserId;
-//     private Guid _testProjectId;
-//     private Guid _testListId;
+    public CommentsControllerTests() {
+        _mockCommentService = new Mock<ICommentService>();
+        _mockAuthorizationService = new Mock<IAuthorizationService>();
+        _controller =
+            new CommentsController(_mockCommentService.Object, _mockAuthorizationService.Object);
+        SetupControllerContext();
+    }
 
-//     public CommentsControllerTests() {
-//         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-//             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-//             .Options;
-//         _context = new ApplicationDbContext(options);
-//         _controller = new CommentsController(_context);
-//         SeedTestData().GetAwaiter().GetResult();
-//         SetupControllerContext();
-//     }
+    private void SetupControllerContext() {
+        var claims = new List<Claim> {
+            new Claim("UserId", _testUserId.ToString()),
+            new Claim("AccessLevel", AccessLevel.Member.ToString())
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuthType");
+        var claimsPrincipal = new ClaimsPrincipal(identity);
 
-//     private void SetupControllerContext() {
-//         var claims = new[] {
-//             new Claim("UserId", _testUserId.ToString()),
-//             new Claim("AccessLevel", AccessLevel.Member.ToString())
-//         };
-//         var identity = new ClaimsIdentity(claims);
-//         var principal = new ClaimsPrincipal(identity);
+        var httpContext = new DefaultHttpContext();
+        httpContext.User = claimsPrincipal;
 
-//         _controller.ControllerContext = new ControllerContext {
-//             HttpContext = new DefaultHttpContext {
-//                 User = principal
-//             }
-//         };
-//     }
+        _controller.ControllerContext = new ControllerContext() {
+            HttpContext = httpContext
+        };
+    }
 
-//     private async Task SeedTestData() {
-//         // Create and save user
-//         var user = new User {
-//             Id = Guid.NewGuid(),
-//             Username = "testuser",
-//             Email = "test@test.com",
-//             Name = "Test User",
-//             PasswordHash = "hashedpassword123",
-//             AccessLevel = AccessLevel.Member
-//         };
-//         _testUserId = user.Id;
+    [Fact]
+    public async Task CreateComment_WithValidData_ReturnsCreatedResult() {
+        // Arrange
+        var createDto = new CommentCreateDto {
+            TaskId = _testTaskId,
+            Content = "Test comment"
+        };
+        var createdComment = new CommentReadDto {
+            Id = Guid.NewGuid(),
+            TaskId = _testTaskId,
+            Content = "Test comment",
+            UserId = _testUserId,
+            CreatedDate = DateTime.UtcNow
+        };
 
-//         // Create workspace and member
-//         var workspace = new Workspace {
-//             Id = Guid.NewGuid(),
-//             Name = "Test Workspace"
-//         };
+        _mockCommentService
+            .Setup(x => x.CreateCommentAsync(It.IsAny<CommentCreateDto>(), _testUserId))
+            .ReturnsAsync(createdComment);
 
-//         var workspaceMember = new WorkspaceMember {
-//             Id = Guid.NewGuid(),
-//             WorkspaceId = workspace.Id,
-//             UserId = user.Id
-//         };
+        // Add this mock setup
+        _mockCommentService
+            .Setup(x => x.GetTaskProjectDetailsAsync(_testTaskId))
+            .ReturnsAsync(new TaskProjectDetailsDto {
+                TaskId = _testTaskId,
+                ProjectId = _testProjectId
+            });
 
-//         // Create project with list and task
-//         _testProjectId = Guid.NewGuid();
-//         _testListId = Guid.NewGuid();
+        _mockAuthorizationService
+            .Setup(x =>
+                x.AuthorizeProjectAccessAsync(_testUserId, _testProjectId, AccessLevel.Member))
+            .ReturnsAsync(true);
 
-//         var project = new Project {
-//             Id = _testProjectId,
-//             Name = "Test Project",
-//             WorkspaceId = workspace.Id
-//         };
+        // Act
+        var result = await _controller.CreateComment(createDto);
 
-//         var projectMember = new ProjectMember {
-//             Id = Guid.NewGuid(),
-//             ProjectId = _testProjectId,
-//             WorkspaceMemberId = workspaceMember.Id
-//         };
+        // Assert
+        var createdResult = Assert.IsType<CreatedAtActionResult>(result);
+        var returnedComment = Assert.IsType<CommentReadDto>(createdResult.Value);
+        Assert.Equal(createdComment.Content, returnedComment.Content);
+    }
 
-//         var list = new TaskList {
-//             Id = _testListId,
-//             Name = "Test List",
-//             ProjectId = _testProjectId
-//         };
+    [Fact]
+    public async Task UpdateComment_WithValidData_ReturnsOkResult() {
+        // Arrange
+        var commentId = Guid.NewGuid();
+        var updateDto = new CommentUpdateDto { Content = "Updated content" };
+        var updatedComment = new CommentReadDto {
+            Id = commentId,
+            TaskId = _testTaskId,
+            Content = "Updated content",
+            UserId = _testUserId,
+            CreatedDate = DateTime.UtcNow
+        };
 
-//         var task = new WorkTask {
-//             Id = Guid.NewGuid(),
-//             Name = "Test Task",
-//             ProjectId = _testProjectId,
-//             ListId = _testListId
-//         };
-//         _testTaskId = task.Id;
+        _mockCommentService
+            .Setup(x => x.GetCommentByIdAsync(commentId))
+            .ReturnsAsync(updatedComment);
 
-//         // Save all entities
-//         await _context.Users.AddAsync(user);
-//         await _context.Workspaces.AddAsync(workspace);
-//         await _context.WorkspaceMembers.AddAsync(workspaceMember);
-//         await _context.Projects.AddAsync(project);
-//         await _context.ProjectMembers.AddAsync(projectMember);
-//         await _context.Lists.AddAsync(list);
-//         await _context.Tasks.AddAsync(task);
-//         await _context.SaveChangesAsync();
-//     }
+        // Add this mock setup
+        _mockCommentService
+            .Setup(x => x.GetTaskProjectDetailsAsync(_testTaskId))
+            .ReturnsAsync(new TaskProjectDetailsDto {
+                TaskId = _testTaskId,
+                ProjectId = _testProjectId
+            });
 
-//     public void Dispose() {
-//         _context.Database.EnsureDeleted();
-//         _context.Dispose();
-//     }
+        _mockCommentService
+            .Setup(x => x.UpdateCommentAsync(commentId, updateDto))
+            .ReturnsAsync(updatedComment);
 
-//     [Fact]
-//     public async Task GetComments_ReturnsOkResult() {
-//         var result = await _controller.GetComments();
-//         var okResult = Assert.IsType<OkObjectResult>(result);
-//         Assert.IsAssignableFrom<IEnumerable<Comment>>(okResult.Value);
-//     }
+        _mockAuthorizationService
+            .Setup(x =>
+                x.AuthorizeProjectAccessAsync(_testUserId, _testProjectId, AccessLevel.Member))
+            .ReturnsAsync(true);
 
-//     [Fact]
-//     public async Task GetCommentById_WithInvalidId_ReturnsNotFound() {
-//         var result = await _controller.GetCommentById(Guid.NewGuid());
-//         Assert.IsType<NotFoundObjectResult>(result);
-//     }
 
-//     [Fact]
-//     public async Task CreateComment_WithValidData_ReturnsCreatedResult() {
-//         var request = new CreateCommentRequest {
-//             TaskId = _testTaskId,
-//             Content = "Test comment"
-//         };
+        // Act
+        var result = await _controller.UpdateComment(commentId, updateDto);
 
-//         var result = await _controller.CreateComment(request);
-//         var createdResult = Assert.IsType<CreatedAtActionResult>(result);
-//         var comment = Assert.IsType<Comment>(createdResult.Value);
-//         Assert.Equal(request.Content, comment.Content);
-//     }
+        // Debug info
+        if (result is BadRequestObjectResult badResult) {
+            var message = badResult.Value?.ToString();
+            Assert.False(true, $"Got BadRequest with message: {message}");
+        }
 
-//     [Fact]
-//     public async Task UpdateComment_WithValidData_ReturnsOkResult() {
-//         // Create a comment first
-//         var comment = new Comment {
-//             Id = Guid.NewGuid(),
-//             TaskId = _testTaskId,
-//             UserId = _testUserId,
-//             Content = "Original content"
-//         };
-//         await _context.Comments.AddAsync(comment);
-//         await _context.SaveChangesAsync();
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var returnedComment = Assert.IsType<CommentReadDto>(okResult.Value);
+        Assert.Equal(updateDto.Content, returnedComment.Content);
+    }
 
-//         var request = new UpdateCommentRequest { Content = "Updated content" };
-//         var result = await _controller.UpdateComment(comment.Id, request);
+    [Fact]
+    public async Task DeleteComment_WithValidId_ReturnsNoContent() {
+        // Arrange
+        var commentId = Guid.NewGuid();
+        var comment = new CommentReadDto {
+            Id = commentId,
+            TaskId = _testTaskId,
+            UserId = _testUserId,
+            Content = "Test comment",
+            CreatedDate = DateTime.UtcNow
+        };
 
-//         var okResult = Assert.IsType<OkObjectResult>(result);
-//         var updatedComment = Assert.IsType<Comment>(okResult.Value);
-//         Assert.Equal(request.Content, updatedComment.Content);
-//     }
+        // Mock getting the comment
+        _mockCommentService
+            .Setup(x => x.GetCommentByIdAsync(commentId))
+            .ReturnsAsync(comment);
 
-//     [Fact]
-//     public async Task DeleteComment_WithExistingComment_ReturnsNoContent() {
-//         // Create a comment first
-//         var comment = new Comment {
-//             Id = Guid.NewGuid(),
-//             TaskId = _testTaskId,
-//             UserId = _testUserId,
-//             Content = "Test content"
-//         };
-//         await _context.Comments.AddAsync(comment);
-//         await _context.SaveChangesAsync();
+        // Mock getting task project details
+        _mockCommentService
+            .Setup(x => x.GetTaskProjectDetailsAsync(_testTaskId))
+            .ReturnsAsync(new TaskProjectDetailsDto {
+                TaskId = _testTaskId,
+                ProjectId = _testProjectId
+            });
 
-//         var result = await _controller.DeleteComment(comment.Id);
-//         Assert.IsType<NoContentResult>(result);
+        // Mock project access authorization
+        _mockAuthorizationService
+            .Setup(x =>
+                x.AuthorizeProjectAccessAsync(_testUserId, _testProjectId, AccessLevel.Member))
+            .ReturnsAsync(true);
 
-//         // Verify comment was actually deleted
-//         var deletedComment = await _context.Comments.FindAsync(comment.Id);
-//         Assert.Null(deletedComment);
-//     }
-// }
+        // Mock delete operation
+        _mockCommentService
+            .Setup(x => x.DeleteCommentAsync(commentId))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _controller.DeleteComment(commentId);
+
+        // Assert
+        Assert.IsType<NoContentResult>(result);
+    }
+
+
+    [Fact]
+    public async Task DeleteComment_WithUnauthorizedUser_ReturnsForbid() {
+        // Arrange
+        var commentId = Guid.NewGuid();
+        var differentUserId = Guid.NewGuid(); // Different from _testUserId
+        var comment = new CommentReadDto {
+            Id = commentId,
+            TaskId = _testTaskId,
+            UserId = differentUserId, // Different user owns the comment
+            Content = "Test comment",
+            CreatedDate = DateTime.UtcNow
+        };
+
+        // Mock getting the comment
+        _mockCommentService
+            .Setup(x => x.GetCommentByIdAsync(commentId))
+            .ReturnsAsync(comment);
+
+        // Mock getting task project details
+        _mockCommentService
+            .Setup(x => x.GetTaskProjectDetailsAsync(_testTaskId))
+            .ReturnsAsync(new TaskProjectDetailsDto {
+                TaskId = _testTaskId,
+                ProjectId = _testProjectId
+            });
+
+        // Mock project access authorization (user has project access but doesn't own comment)
+        _mockAuthorizationService
+            .Setup(x =>
+                x.AuthorizeProjectAccessAsync(_testUserId, _testProjectId, AccessLevel.Member))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _controller.DeleteComment(commentId);
+
+        // Assert
+        Assert.IsType<ForbidResult>(result);
+    }
+}

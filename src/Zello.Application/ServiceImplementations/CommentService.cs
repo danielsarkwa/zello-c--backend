@@ -9,10 +9,23 @@ public class CommentService : ICommentService {
     private readonly ICommentRepository _commentRepository;
     private readonly IWorkTaskRepository _workTaskRepository;
 
-    public CommentService(ICommentRepository commentRepository, IWorkTaskRepository workTaskRepository) {
+    public CommentService(ICommentRepository commentRepository,
+        IWorkTaskRepository workTaskRepository) {
         _commentRepository = commentRepository;
         _workTaskRepository = workTaskRepository;
     }
+
+    public async Task<TaskProjectDetailsDto> GetTaskProjectDetailsAsync(Guid taskId) {
+        var task = await _workTaskRepository.GetTaskByIdAsync(taskId);
+        if (task == null)
+            throw new Exception($"Task with ID {taskId} not found");
+
+        return new TaskProjectDetailsDto {
+            TaskId = task.Id,
+            ProjectId = task.ProjectId
+        };
+    }
+
 
     public async Task<CommentReadDto> GetCommentByIdAsync(Guid commentId) {
         var comment = await _commentRepository.GetCommentByIdAsync(commentId);
@@ -27,7 +40,8 @@ public class CommentService : ICommentService {
         return comments.Select(MapToCommentReadDto);
     }
 
-    public async Task<CommentReadDto> CreateCommentAsync(CommentCreateDto commentCreateDto, Guid userId) {
+    public async Task<CommentReadDto> CreateCommentAsync(CommentCreateDto commentCreateDto,
+        Guid userId) {
         var taskExists = await _workTaskRepository.GetTaskByIdAsync(commentCreateDto.TaskId);
         if (taskExists == null)
             throw new Exception($"Task with ID {commentCreateDto.TaskId} not found");
@@ -45,7 +59,8 @@ public class CommentService : ICommentService {
         return MapToCommentReadDto(comment);
     }
 
-    public async Task<CommentReadDto> UpdateCommentAsync(Guid commentId, CommentUpdateDto commentUpdateDto) {
+    public async Task<CommentReadDto> UpdateCommentAsync(Guid commentId,
+        CommentUpdateDto commentUpdateDto) {
         var comment = await _commentRepository.GetCommentByIdAsync(commentId);
         if (comment == null)
             throw new Exception($"Comment with ID {commentId} not found");
@@ -59,6 +74,7 @@ public class CommentService : ICommentService {
     public async Task DeleteCommentAsync(Guid commentId) {
         await _commentRepository.DeleteCommentAsync(commentId);
     }
+
 
     private CommentReadDto MapToCommentReadDto(Comment comment) {
         return new CommentReadDto {

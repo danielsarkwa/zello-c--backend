@@ -144,22 +144,23 @@ public class WorkTaskService : IWorkTaskService {
 
     public async Task<CommentReadDto> AddTaskCommentAsync(Guid taskId, string content, Guid userId,
         AccessLevel userAccess) {
+        // First verify task exists and user has access
         var task = await _workTaskRepository.GetTaskByIdAsync(taskId);
+        if (task == null)
+            throw new KeyNotFoundException($"Task with ID {taskId} not found");
+
         await EnsureProjectAccessAsync(task.ProjectId, userId, userAccess);
 
-        var comment = new Comment {
-            Id = Guid.NewGuid(),
+        // Create comment through CommentService
+        var commentDto = await _commentService.CreateCommentAsync(new CommentCreateDto {
             TaskId = taskId,
-            UserId = userId,
             Content = content,
-            CreatedDate = DateTime.UtcNow
-        };
+            UserId = userId
+        }, userId);
 
-        task.Comments.Add(comment);
-        await _workTaskRepository.UpdateTaskAsync(task);
-
-        return CommentReadDto.FromEntity(comment);
+        return commentDto;
     }
+
 
     private async Task EnsureProjectAccessAsync(Guid projectId, Guid userId, AccessLevel userAccess,
         AccessLevel requiredAccess = AccessLevel.Guest) {

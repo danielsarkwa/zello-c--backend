@@ -6,23 +6,50 @@ using Zello.Domain.Entities;
 
 namespace Zello.Application.Dtos;
 
+// ListReadDto
+/// <summary>
+/// Data transfer object for reading list information
+/// </summary>
 public class ListReadDto {
+    /// <summary>
+    /// Unique identifier of the list
+    /// </summary>
+    /// <example>123e4567-e89b-12d3-a456-426614174000</example>
     [JsonProperty("id")]
     public Guid Id { get; set; }
 
+    /// <summary>
+    /// ID of the project containing this list
+    /// </summary>
+    /// <example>123e4567-e89b-12d3-a456-426614174001</example>
     [JsonProperty("project_id")]
     public Guid ProjectId { get; set; }
 
+    /// <summary>
+    /// Name of the list
+    /// </summary>
+    /// <example>To Do</example>
     [JsonProperty("name")]
     public string Name { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Position of the list within the project
+    /// </summary>
+    /// <example>1</example>
     [JsonProperty("position")]
     public int Position { get; set; }
 
+    /// <summary>
+    /// Date when the list was created
+    /// </summary>
+    /// <example>2024-01-01T12:00:00Z</example>
     [JsonProperty("created_date")]
     [JsonConverter(typeof(IsoDateTimeConverter))]
     public DateTime CreatedDate { get; set; }
 
+    /// <summary>
+    /// Tasks contained within this list
+    /// </summary>
     [JsonProperty("tasks")]
     public IEnumerable<TaskReadDto> Tasks { get; set; } = new List<TaskReadDto>();
 

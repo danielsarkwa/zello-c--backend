@@ -24,6 +24,21 @@ public class UserController : ControllerBase {
         _passwordHasher = passwordHasher;
     }
 
+    /// <summary>
+    /// Authenticates a user and returns a JWT token
+    /// </summary>
+    /// <param name="request">Login credentials</param>
+    /// <remarks>
+    /// Sample request:
+    ///
+    ///     POST /api/v1/User/login
+    ///     {
+    ///         "username": "johndoe",
+    ///         "password": "password123"
+    ///     }
+    /// </remarks>
+    /// <response code="200">Authentication successful</response>
+    /// <response code="401">Invalid credentials</response>
     [HttpPost("login")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
@@ -37,6 +52,14 @@ public class UserController : ControllerBase {
             : Ok(loginResponse);
     }
 
+    /// <summary>
+    /// Retrieves the current authenticated user's information
+    /// </summary>
+    /// <remarks>
+    /// Requires authentication via JWT token
+    /// </remarks>
+    /// <response code="200">Returns the current user's information</response>
+    /// <response code="401">User is not authenticated</response>
     [HttpGet("me")]
     [ProducesResponseType(typeof(UserReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -52,6 +75,24 @@ public class UserController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Registers a new user
+    /// </summary>
+    /// <param name="registerDto">User registration details</param>
+    /// <remarks>
+    /// Sample request:
+    ///
+    ///     POST /api/v1/User/register
+    ///     {
+    ///         "userName": "johndoe",
+    ///         "name": "John Doe",
+    ///         "email": "john.doe@example.com",
+    ///         "password": "password123",
+    ///         "accessLevel": "Member"
+    ///     }
+    /// </remarks>
+    /// <response code="201">User successfully registered</response>
+    /// <response code="400">Invalid registration data or username already exists</response>
     [HttpPost("register")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(UserReadDto), StatusCodes.Status201Created)]
@@ -67,6 +108,16 @@ public class UserController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Retrieves a user by their ID
+    /// </summary>
+    /// <param name="userId">The unique identifier of the user</param>
+    /// <remarks>
+    /// Users can only view their own profile unless they have Admin access
+    /// </remarks>
+    /// <response code="200">Returns the requested user's information</response>
+    /// <response code="403">Insufficient permissions to view user</response>
+    /// <response code="404">User not found</response>
     [HttpGet("{userId}")]
     [ProducesResponseType(typeof(UserReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -87,6 +138,15 @@ public class UserController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Retrieves all users in the system
+    /// </summary>
+    /// <remarks>
+    /// Required permissions:
+    /// - Admin access level
+    /// </remarks>
+    /// <response code="200">Returns list of all users</response>
+    /// <response code="403">User is not an administrator</response>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<UserReadDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -102,6 +162,18 @@ public class UserController : ControllerBase {
         return Ok(users);
     }
 
+    /// <summary>
+    /// Updates a user's information
+    /// </summary>
+    /// <param name="userId">The unique identifier of the user to update</param>
+    /// <param name="updateDto">Updated user information</param>
+    /// <remarks>
+    /// Users can only update their own profile unless they have Admin access
+    /// </remarks>
+    /// <response code="200">User successfully updated</response>
+    /// <response code="400">Invalid update data</response>
+    /// <response code="403">Insufficient permissions to update user</response>
+    /// <response code="404">User not found</response>
     [HttpPut("{userId}")]
     [ProducesResponseType(typeof(UserReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -127,6 +199,16 @@ public class UserController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Deletes a user account
+    /// </summary>
+    /// <param name="userId">The unique identifier of the user to delete</param>
+    /// <remarks>
+    /// Users can only delete their own account unless they have Admin access
+    /// </remarks>
+    /// <response code="204">User successfully deleted</response>
+    /// <response code="403">Insufficient permissions to delete user</response>
+    /// <response code="404">User not found</response>
     [HttpDelete("{userId}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

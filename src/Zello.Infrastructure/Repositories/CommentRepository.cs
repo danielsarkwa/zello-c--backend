@@ -6,13 +6,13 @@ using Zello.Infrastructure.Data;
 namespace Zello.Infrastructure.Repositories;
 
 public class CommentRepository : BaseRepository<Comment>, ICommentRepository {
-
     public CommentRepository(ApplicationDbContext context) : base(context) {
     }
 
     public async Task<Comment?> GetCommentByIdAsync(Guid commentId) {
         return await _dbSet
             .Include(c => c.User)
+            .AsNoTracking() // Add this to prevent tracking conflicts
             .FirstOrDefaultAsync(c => c.Id == commentId);
     }
 
@@ -20,24 +20,44 @@ public class CommentRepository : BaseRepository<Comment>, ICommentRepository {
         return await _context.Comments
             .Where(c => c.TaskId == taskId)
             .Include(c => c.User)
+            .AsNoTracking() // Add this to prevent tracking conflicts
             .ToListAsync();
     }
 
     public async Task<Comment> AddCommentAsync(Comment comment) {
-        await _context.Comments.AddAsync(comment);
+        // Detach any existing entities with the same ID to prevent tracking conflicts
+        var local = _context.Comments.Local.FirstOrDefault(c => c.Id == comment.Id);
+        if (local != null) {
+            _context.Entry(local).State = EntityState.Detached;
+        }
+
+        var entry = await _context.Comments.AddAsync(comment);
         await _context.SaveChangesAsync();
-        return comment;
+
+        // Refresh the comment to include any generated values
+        await entry.Reference(c => c.User).LoadAsync();
+
+        return entry.Entity;
     }
 
     public async Task<Comment> UpdateCommentAsync(Comment comment) {
-        var existingComment = await _context.Comments.FindAsync(comment.Id);
-        if (existingComment == null) {
-            throw new Exception($"Comment with ID {comment.Id} not found");
+        // First detach any existing entity with the same ID
+        var local = _context.Comments.Local.FirstOrDefault(c => c.Id == comment.Id);
+        if (local != null) {
+            _context.Entry(local).State = EntityState.Detached;
         }
 
-        _context.Comments.Update(comment);
-        await _context.SaveChangesAsync();
-        return comment;
+        // Then attach and mark as modified
+        _context.Entry(comment).State = EntityState.Modified;
+
+        try {
+            await _context.SaveChangesAsync();
+            return comment;
+        } catch (DbUpdateConcurrencyException) {
+            if (!await CommentExists(comment.Id))
+                throw new KeyNotFoundException($"Comment with ID {comment.Id} not found");
+            throw;
+        }
     }
 
     public async Task<bool> DeleteCommentAsync(Guid commentId) {
@@ -49,5 +69,9 @@ public class CommentRepository : BaseRepository<Comment>, ICommentRepository {
         _context.Comments.Remove(comment);
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    private async Task<bool> CommentExists(Guid id) {
+        return await _context.Comments.AnyAsync(c => c.Id == id);
     }
 }

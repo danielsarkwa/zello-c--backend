@@ -20,6 +20,18 @@ public sealed class TaskController : ControllerBase {
         _workTaskService = workTaskService;
     }
 
+    /// <summary>
+    /// Retrieves a specific task by ID
+    /// </summary>
+    /// <param name="taskId">The unique identifier of the task</param>
+    /// <remarks>
+    /// Required permissions:
+    /// - Project member access, or
+    /// - Admin access
+    /// </remarks>
+    /// <response code="200">Returns the requested task</response>
+    /// <response code="403">User does not have access to this task</response>
+    /// <response code="404">Task not found</response>
     [HttpGet("{taskId}")]
     [ProducesResponseType(typeof(TaskReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -39,6 +51,16 @@ public sealed class TaskController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Retrieves all tasks accessible to the user
+    /// </summary>
+    /// <remarks>
+    /// Returns:
+    /// - All tasks for Admin users
+    /// - Only tasks in projects where the user is a member for non-Admin users
+    /// </remarks>
+    /// <response code="200">List of accessible tasks</response>
+    /// <response code="400">User ID is missing</response>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<TaskReadDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllTasks() {
@@ -50,6 +72,20 @@ public sealed class TaskController : ControllerBase {
         return Ok(tasks);
     }
 
+    /// <summary>
+    /// Updates an existing task
+    /// </summary>
+    /// <param name="taskId">The unique identifier of the task to update</param>
+    /// <param name="taskUpdateDto">Updated task details</param>
+    /// <remarks>
+    /// Required permissions:
+    /// - Project member access, or
+    /// - Admin access
+    /// </remarks>
+    /// <response code="200">Task successfully updated</response>
+    /// <response code="400">Invalid update data</response>
+    /// <response code="403">User does not have access to this task</response>
+    /// <response code="404">Task not found</response>
     [HttpPut("{taskId}")]
     public async Task<IActionResult>
         UpdateTask(Guid taskId, [FromBody] TaskUpdateDto taskUpdateDto) {
@@ -71,6 +107,18 @@ public sealed class TaskController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Deletes a task
+    /// </summary>
+    /// <param name="taskId">The unique identifier of the task to delete</param>
+    /// <remarks>
+    /// Required permissions:
+    /// - Project member access, or
+    /// - Admin access
+    /// </remarks>
+    /// <response code="204">Task successfully deleted</response>
+    /// <response code="403">User does not have access to delete this task</response>
+    /// <response code="404">Task not found</response>
     [HttpDelete("{taskId}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -90,6 +138,23 @@ public sealed class TaskController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Moves a task to a different list
+    /// </summary>
+    /// <param name="taskId">The unique identifier of the task to move</param>
+    /// <param name="request">Move request containing target list ID</param>
+    /// <remarks>
+    /// Sample request:
+    ///
+    ///     POST /api/v1/Task/{taskId}/move
+    ///     {
+    ///         "targetListId": "123e4567-e89b-12d3-a456-426614174000"
+    ///     }
+    /// </remarks>
+    /// <response code="200">Task successfully moved</response>
+    /// <response code="400">Invalid move request or target list does not exist</response>
+    /// <response code="403">User does not have access to move this task</response>
+    /// <response code="404">Task not found</response>
     [HttpPost("{taskId}/move")]
     [ProducesResponseType(typeof(TaskDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -113,6 +178,23 @@ public sealed class TaskController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Assigns a user to a task
+    /// </summary>
+    /// <param name="taskId">The unique identifier of the task</param>
+    /// <param name="request">Assignment request containing user ID</param>
+    /// <remarks>
+    /// Sample request:
+    ///
+    ///     POST /api/v1/Task/{taskId}/assignees
+    ///     {
+    ///         "user_id": "123e4567-e89b-12d3-a456-426614174000"
+    ///     }
+    /// </remarks>
+    /// <response code="201">User successfully assigned to task</response>
+    /// <response code="400">Invalid assignment request</response>
+    /// <response code="403">Insufficient permissions to assign users</response>
+    /// <response code="404">Task or user not found</response>
     [HttpPost("{taskId}/assignees")]
     [ProducesResponseType(typeof(TaskAssigneeReadDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -140,6 +222,19 @@ public sealed class TaskController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Removes an assignee from a task
+    /// </summary>
+    /// <param name="taskId">The unique identifier of the task</param>
+    /// <param name="userId">The ID of the user to remove from the task</param>
+    /// <remarks>
+    /// Required permissions:
+    /// - Project member access, or
+    /// - Admin access
+    /// </remarks>
+    /// <response code="204">Assignee successfully removed</response>
+    /// <response code="403">Insufficient permissions to remove assignee</response>
+    /// <response code="404">Task or assignee not found</response>
     [HttpDelete("{taskId}/assignees/{userId}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -160,6 +255,18 @@ public sealed class TaskController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Retrieves all assignees of a task
+    /// </summary>
+    /// <param name="taskId">The unique identifier of the task</param>
+    /// <remarks>
+    /// Required permissions:
+    /// - Project member access, or
+    /// - Admin access
+    /// </remarks>
+    /// <response code="200">List of task assignees</response>
+    /// <response code="403">User does not have access to view task assignees</response>
+    /// <response code="404">Task not found</response>
     [HttpGet("{taskId}/assignees")]
     [ProducesResponseType(typeof(IEnumerable<TaskAssigneeReadDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -180,6 +287,18 @@ public sealed class TaskController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Retrieves all comments on a task
+    /// </summary>
+    /// <param name="taskId">The unique identifier of the task</param>
+    /// <remarks>
+    /// Required permissions:
+    /// - Project member access, or
+    /// - Admin access
+    /// </remarks>
+    /// <response code="200">List of task comments</response>
+    /// <response code="403">User does not have access to view task comments</response>
+    /// <response code="404">Task not found</response>
     [HttpGet("{taskId}/comments")]
     [ProducesResponseType(typeof(IEnumerable<CommentReadDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -200,6 +319,23 @@ public sealed class TaskController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Adds a new comment to a task
+    /// </summary>
+    /// <param name="taskId">The unique identifier of the task</param>
+    /// <param name="request">Comment creation request</param>
+    /// <remarks>
+    /// Sample request:
+    ///
+    ///     POST /api/v1/Task/{taskId}/comments
+    ///     {
+    ///         "content": "This is a comment on the task"
+    ///     }
+    /// </remarks>
+    /// <response code="201">Comment successfully added</response>
+    /// <response code="400">Invalid comment data</response>
+    /// <response code="403">User does not have access to comment on this task</response>
+    /// <response code="404">Comment not found</response>
     [HttpPost("{taskId}/comments")]
     [ProducesResponseType(typeof(CommentReadDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

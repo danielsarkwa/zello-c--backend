@@ -20,6 +20,29 @@ public sealed class ProjectController : ControllerBase {
         _authorizationService = authorizationService;
     }
 
+    /// <summary>
+    /// Creates a new project
+    /// </summary>
+    /// <param name="projectDto">Project creation details</param>
+    /// <remarks>
+    /// Sample request:
+    ///
+    ///     POST /api/v1/Project
+    ///     {
+    ///         "name": "New Project",
+    ///         "description": "Project description",
+    ///         "workspace_id": "123e4567-e89b-12d3-a456-426614174000",
+    ///         "start_date": "2024-01-01",
+    ///         "end_date": "2024-12-31",
+    ///         "status": "NotStarted"
+    ///     }
+    ///
+    /// Required permissions:
+    /// - Workspace member access
+    /// </remarks>
+    /// <response code="201">Project successfully created</response>
+    /// <response code="400">Invalid project data or user ID is null</response>
+    /// <response code="403">User is not a member of the workspace</response>
     [HttpPost]
     [ProducesResponseType(typeof(ProjectReadDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -97,6 +120,19 @@ public sealed class ProjectController : ControllerBase {
     }
 
 
+    /// <summary>
+    /// Retrieves a project by its ID
+    /// </summary>
+    /// <param name="projectId">The unique identifier of the project</param>
+    /// <remarks>
+    /// Required permissions:
+    /// - Project member access, or
+    /// - Admin access
+    /// </remarks>
+    /// <response code="200">Returns the requested project</response>
+    /// <response code="400">User ID is null</response>
+    /// <response code="403">User does not have access to this project</response>
+    /// <response code="404">Project not found</response>
     [HttpGet("{projectId}")]
     [ProducesResponseType(typeof(ProjectReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -125,6 +161,20 @@ public sealed class ProjectController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Retrieves all projects accessible to the user
+    /// </summary>
+    /// <param name="workspaceId">Optional workspace ID to filter projects</param>
+    /// <remarks>
+    /// For non-admin users, returns only projects where they are a member.
+    /// Admin users can see all projects.
+    ///
+    /// Optional query parameter:
+    /// - workspaceId: Filter projects by workspace
+    /// </remarks>
+    /// <response code="200">Returns list of accessible projects</response>
+    /// <response code="400">User ID is null</response>
+    /// <response code="403">Insufficient permissions</response>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<ProjectReadDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -147,6 +197,31 @@ public sealed class ProjectController : ControllerBase {
         return Ok(projects);
     }
 
+    /// <summary>
+    /// Updates an existing project
+    /// </summary>
+    /// <param name="projectId">The unique identifier of the project to update</param>
+    /// <param name="updatedProject">Updated project details</param>
+    /// <remarks>
+    /// Sample request:
+    ///
+    ///     PUT /api/v1/Project/{projectId}
+    ///     {
+    ///         "name": "Updated Name",
+    ///         "description": "Updated description",
+    ///         "startDate": "2024-02-01",
+    ///         "endDate": "2024-12-31",
+    ///         "status": "InProgress"
+    ///     }
+    ///
+    /// Required permissions:
+    /// - Project Owner access level, or
+    /// - Admin access
+    /// </remarks>
+    /// <response code="200">Project successfully updated</response>
+    /// <response code="400">Invalid update data or user ID is null</response>
+    /// <response code="403">Insufficient permissions to update project</response>
+    /// <response code="404">Project not found</response>
     [HttpPut("{projectId}")]
     [ProducesResponseType(typeof(ProjectReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -184,6 +259,19 @@ public sealed class ProjectController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Deletes a project
+    /// </summary>
+    /// <param name="projectId">The unique identifier of the project to delete</param>
+    /// <remarks>
+    /// Required permissions:
+    /// - Project Owner access level, or
+    /// - Admin access
+    /// </remarks>
+    /// <response code="204">Project successfully deleted</response>
+    /// <response code="400">User ID is null</response>
+    /// <response code="403">Insufficient permissions to delete project</response>
+    /// <response code="404">Project not found</response>
     [HttpDelete("{projectId}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -214,6 +302,28 @@ public sealed class ProjectController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Adds a new member to a project
+    /// </summary>
+    /// <param name="createMember">Project member details</param>
+    /// <remarks>
+    /// Sample request:
+    ///
+    ///     POST /api/v1/Project/members
+    ///     {
+    ///         "project_id": "123e4567-e89b-12d3-a456-426614174000",
+    ///         "workspace_member_id": "123e4567-e89b-12d3-a456-426614174001",
+    ///         "access_level": "Member"
+    ///     }
+    ///
+    /// Required permissions:
+    /// - Project Owner access level, or
+    /// - Admin access
+    /// </remarks>
+    /// <response code="201">Member successfully added to project</response>
+    /// <response code="400">Invalid member data or user ID is null</response>
+    /// <response code="403">Insufficient permissions to add members</response>
+    /// <response code="404">Project or workspace member not found</response>
     [HttpPost("members")]
     [ProducesResponseType(typeof(ProjectMemberReadDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -241,6 +351,34 @@ public sealed class ProjectController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Creates a new list in a project
+    /// </summary>
+    /// <param name="projectId">The unique identifier of the project</param>
+    /// <param name="model">List creation details</param>
+    /// <remarks>
+    /// Sample request:
+    ///
+    ///     POST /api/v1/Project/{projectId}/lists
+    ///     {
+    ///         "name": "New List",
+    ///         "tasks": [
+    ///             {
+    ///                 "name": "Task 1",
+    ///                 "description": "Task description",
+    ///                 "status": "ToDo",
+    ///                 "priority": "Medium"
+    ///             }
+    ///         ]
+    ///     }
+    ///
+    /// Required permissions:
+    /// - Project member access
+    /// </remarks>
+    /// <response code="201">List successfully created</response>
+    /// <response code="400">Invalid list data or user ID is null</response>
+    /// <response code="403">User is not a project member</response>
+    /// <response code="404">Project not found</response>
     [HttpPost("{projectId}/lists")]
     [ProducesResponseType(typeof(ListReadDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -270,6 +408,18 @@ public sealed class ProjectController : ControllerBase {
         }
     }
 
+    /// <summary>
+    /// Retrieves all lists in a project
+    /// </summary>
+    /// <param name="projectId">The unique identifier of the project</param>
+    /// <remarks>
+    /// Required permissions:
+    /// - Project member access
+    /// </remarks>
+    /// <response code="200">Returns the project's lists</response>
+    /// <response code="400">User ID is null</response>
+    /// <response code="403">User does not have access to this project</response>
+    /// <response code="404">Project not found</response>
     [HttpGet("{projectId}/lists")]
     [ProducesResponseType(typeof(IEnumerable<ListReadDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

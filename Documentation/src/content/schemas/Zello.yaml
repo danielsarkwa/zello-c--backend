@@ -706,7 +706,10 @@ paths:
     post:
       tags:
         - Project
+      summary: Creates a new project
+      description: "Sample request:\r\n            \r\n    POST /api/v1/Project\r\n    {\r\n        \"name\": \"New Project\",\r\n        \"description\": \"Project description\",\r\n        \"workspace_id\": \"123e4567-e89b-12d3-a456-426614174000\",\r\n        \"start_date\": \"2024-01-01\",\r\n        \"end_date\": \"2024-12-31\",\r\n        \"status\": \"NotStarted\"\r\n    }\r\n            \r\nRequired permissions:\r\n- Workspace member access"
       requestBody:
+        description: Project creation details
         content:
           application/json-patch+json:
             schema:
@@ -722,7 +725,7 @@ paths:
               $ref: '#/components/schemas/ProjectCreateDto'
       responses:
         '201':
-          description: Created
+          description: Project successfully created
           content:
             text/plain:
               schema:
@@ -734,7 +737,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProjectReadDto'
         '400':
-          description: Bad Request
+          description: Invalid project data or user ID is null
           content:
             text/plain:
               schema:
@@ -746,7 +749,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: User is not a member of the workspace
           content:
             text/plain:
               schema:
@@ -760,15 +763,18 @@ paths:
     get:
       tags:
         - Project
+      summary: Retrieves all projects accessible to the user
+      description: "For non-admin users, returns only projects where they are a member.\r\nAdmin users can see all projects.\r\n            \r\nOptional query parameter:\r\n- workspaceId: Filter projects by workspace"
       parameters:
         - name: workspaceId
           in: query
+          description: Optional workspace ID to filter projects
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: Returns list of accessible projects
           content:
             text/plain:
               schema:
@@ -786,7 +792,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/ProjectReadDto'
         '403':
-          description: Forbidden
+          description: Insufficient permissions
           content:
             text/plain:
               schema:
@@ -797,6 +803,8 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: User ID is null
   /api/v1/Project/members/access:
     put:
       tags:
@@ -871,16 +879,19 @@ paths:
     get:
       tags:
         - Project
+      summary: Retrieves a project by its ID
+      description: "Required permissions:\r\n- Project member access, or\r\n- Admin access"
       parameters:
         - name: projectId
           in: path
+          description: The unique identifier of the project
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: Returns the requested project
           content:
             text/plain:
               schema:
@@ -892,7 +903,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProjectReadDto'
         '404':
-          description: Not Found
+          description: Project not found
           content:
             text/plain:
               schema:
@@ -904,7 +915,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: User does not have access to this project
           content:
             text/plain:
               schema:
@@ -915,17 +926,23 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: User ID is null
     put:
       tags:
         - Project
+      summary: Updates an existing project
+      description: "Sample request:\r\n            \r\n    PUT /api/v1/Project/{projectId}\r\n    {\r\n        \"name\": \"Updated Name\",\r\n        \"description\": \"Updated description\",\r\n        \"startDate\": \"2024-02-01\",\r\n        \"endDate\": \"2024-12-31\",\r\n        \"status\": \"InProgress\"\r\n    }\r\n            \r\nRequired permissions:\r\n- Project Owner access level, or\r\n- Admin access"
       parameters:
         - name: projectId
           in: path
+          description: The unique identifier of the project to update
           required: true
           schema:
             type: string
             format: uuid
       requestBody:
+        description: Updated project details
         content:
           application/json-patch+json:
             schema:
@@ -941,7 +958,7 @@ paths:
               $ref: '#/components/schemas/ProjectUpdateDto'
       responses:
         '200':
-          description: OK
+          description: Project successfully updated
           content:
             text/plain:
               schema:
@@ -953,7 +970,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProjectReadDto'
         '400':
-          description: Bad Request
+          description: Invalid update data or user ID is null
           content:
             text/plain:
               schema:
@@ -965,7 +982,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: Project not found
           content:
             text/plain:
               schema:
@@ -977,7 +994,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to update project
           content:
             text/plain:
               schema:
@@ -991,18 +1008,21 @@ paths:
     delete:
       tags:
         - Project
+      summary: Deletes a project
+      description: "Required permissions:\r\n- Project Owner access level, or\r\n- Admin access"
       parameters:
         - name: projectId
           in: path
+          description: The unique identifier of the project to delete
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '204':
-          description: No Content
+          description: Project successfully deleted
         '404':
-          description: Not Found
+          description: Project not found
           content:
             text/plain:
               schema:
@@ -1014,7 +1034,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to delete project
           content:
             text/plain:
               schema:
@@ -1025,11 +1045,16 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: User ID is null
   /api/v1/Project/members:
     post:
       tags:
         - Project
+      summary: Adds a new member to a project
+      description: "Sample request:\r\n            \r\n    POST /api/v1/Project/members\r\n    {\r\n        \"project_id\": \"123e4567-e89b-12d3-a456-426614174000\",\r\n        \"workspace_member_id\": \"123e4567-e89b-12d3-a456-426614174001\",\r\n        \"access_level\": \"Member\"\r\n    }\r\n            \r\nRequired permissions:\r\n- Project Owner access level, or\r\n- Admin access"
       requestBody:
+        description: Project member details
         content:
           application/json-patch+json:
             schema:
@@ -1045,7 +1070,7 @@ paths:
               $ref: '#/components/schemas/ProjectMemberCreateDto'
       responses:
         '201':
-          description: Created
+          description: Member successfully added to project
           content:
             text/plain:
               schema:
@@ -1057,7 +1082,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProjectMemberReadDto'
         '400':
-          description: Bad Request
+          description: Invalid member data or user ID is null
           content:
             text/plain:
               schema:
@@ -1069,7 +1094,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: Project or workspace member not found
           content:
             text/plain:
               schema:
@@ -1081,7 +1106,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to add members
           content:
             text/plain:
               schema:
@@ -1096,14 +1121,18 @@ paths:
     post:
       tags:
         - Project
+      summary: Creates a new list in a project
+      description: "Sample request:\r\n            \r\n    POST /api/v1/Project/{projectId}/lists\r\n    {\r\n        \"name\": \"New List\",\r\n        \"tasks\": [\r\n            {\r\n                \"name\": \"Task 1\",\r\n                \"description\": \"Task description\",\r\n                \"status\": \"ToDo\",\r\n                \"priority\": \"Medium\"\r\n            }\r\n        ]\r\n    }\r\n            \r\nRequired permissions:\r\n- Project member access"
       parameters:
         - name: projectId
           in: path
+          description: The unique identifier of the project
           required: true
           schema:
             type: string
             format: uuid
       requestBody:
+        description: List creation details
         content:
           application/json-patch+json:
             schema:
@@ -1119,7 +1148,7 @@ paths:
               $ref: '#/components/schemas/ListCreateDto'
       responses:
         '201':
-          description: Created
+          description: List successfully created
           content:
             text/plain:
               schema:
@@ -1131,7 +1160,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListReadDto'
         '400':
-          description: Bad Request
+          description: Invalid list data or user ID is null
           content:
             text/plain:
               schema:
@@ -1143,7 +1172,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: Project not found
           content:
             text/plain:
               schema:
@@ -1155,7 +1184,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: User is not a project member
           content:
             text/plain:
               schema:
@@ -1169,16 +1198,19 @@ paths:
     get:
       tags:
         - Project
+      summary: Retrieves all lists in a project
+      description: "Required permissions:\r\n- Project member access"
       parameters:
         - name: projectId
           in: path
+          description: The unique identifier of the project
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: Returns the project's lists
           content:
             text/plain:
               schema:
@@ -1196,7 +1228,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/ListReadDto'
         '404':
-          description: Not Found
+          description: Project not found
           content:
             text/plain:
               schema:
@@ -1208,7 +1240,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: User does not have access to this project
           content:
             text/plain:
               schema:
@@ -1219,20 +1251,25 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: User ID is null
   '/api/v1/Task/{taskId}':
     get:
       tags:
         - Task
+      summary: Retrieves a specific task by ID
+      description: "Required permissions:\r\n- Project member access, or\r\n- Admin access"
       parameters:
         - name: taskId
           in: path
+          description: The unique identifier of the task
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: Returns the requested task
           content:
             text/plain:
               schema:
@@ -1244,7 +1281,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TaskReadDto'
         '404':
-          description: Not Found
+          description: Task not found
           content:
             text/plain:
               schema:
@@ -1256,7 +1293,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: User does not have access to this task
           content:
             text/plain:
               schema:
@@ -1270,14 +1307,18 @@ paths:
     put:
       tags:
         - Task
+      summary: Updates an existing task
+      description: "Required permissions:\r\n- Project member access, or\r\n- Admin access"
       parameters:
         - name: taskId
           in: path
+          description: The unique identifier of the task to update
           required: true
           schema:
             type: string
             format: uuid
       requestBody:
+        description: Updated task details
         content:
           application/json-patch+json:
             schema:
@@ -1293,22 +1334,31 @@ paths:
               $ref: '#/components/schemas/TaskUpdateDto'
       responses:
         '200':
-          description: OK
+          description: Task successfully updated
+        '400':
+          description: Invalid update data
+        '403':
+          description: User does not have access to this task
+        '404':
+          description: Task not found
     delete:
       tags:
         - Task
+      summary: Deletes a task
+      description: "Required permissions:\r\n- Project member access, or\r\n- Admin access"
       parameters:
         - name: taskId
           in: path
+          description: The unique identifier of the task to delete
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '204':
-          description: No Content
+          description: Task successfully deleted
         '404':
-          description: Not Found
+          description: Task not found
           content:
             text/plain:
               schema:
@@ -1320,7 +1370,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: User does not have access to delete this task
           content:
             text/plain:
               schema:
@@ -1335,9 +1385,11 @@ paths:
     get:
       tags:
         - Task
+      summary: Retrieves all tasks accessible to the user
+      description: "Returns:\r\n- All tasks for Admin users\r\n- Only tasks in projects where the user is a member for non-Admin users"
       responses:
         '200':
-          description: OK
+          description: List of accessible tasks
           content:
             text/plain:
               schema:
@@ -1354,18 +1406,24 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/TaskReadDto'
+        '400':
+          description: User ID is missing
   '/api/v1/Task/{taskId}/move':
     post:
       tags:
         - Task
+      summary: Moves a task to a different list
+      description: "Sample request:\r\n            \r\n    POST /api/v1/Task/{taskId}/move\r\n    {\r\n        \"targetListId\": \"123e4567-e89b-12d3-a456-426614174000\"\r\n    }"
       parameters:
         - name: taskId
           in: path
+          description: The unique identifier of the task to move
           required: true
           schema:
             type: string
             format: uuid
       requestBody:
+        description: Move request containing target list ID
         content:
           application/json-patch+json:
             schema:
@@ -1381,7 +1439,7 @@ paths:
               $ref: '#/components/schemas/MoveTaskRequest'
       responses:
         '200':
-          description: OK
+          description: Task successfully moved
           content:
             text/plain:
               schema:
@@ -1393,7 +1451,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TaskDto'
         '400':
-          description: Bad Request
+          description: Invalid move request or target list does not exist
           content:
             text/plain:
               schema:
@@ -1405,7 +1463,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: Task not found
           content:
             text/plain:
               schema:
@@ -1417,7 +1475,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: User does not have access to move this task
           content:
             text/plain:
               schema:
@@ -1432,14 +1490,18 @@ paths:
     post:
       tags:
         - Task
+      summary: Assigns a user to a task
+      description: "Sample request:\r\n            \r\n    POST /api/v1/Task/{taskId}/assignees\r\n    {\r\n        \"user_id\": \"123e4567-e89b-12d3-a456-426614174000\"\r\n    }"
       parameters:
         - name: taskId
           in: path
+          description: The unique identifier of the task
           required: true
           schema:
             type: string
             format: uuid
       requestBody:
+        description: Assignment request containing user ID
         content:
           application/json-patch+json:
             schema:
@@ -1455,7 +1517,7 @@ paths:
               $ref: '#/components/schemas/AssignUserRequest'
       responses:
         '201':
-          description: Created
+          description: User successfully assigned to task
           content:
             text/plain:
               schema:
@@ -1467,7 +1529,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TaskAssigneeReadDto'
         '400':
-          description: Bad Request
+          description: Invalid assignment request
           content:
             text/plain:
               schema:
@@ -1479,7 +1541,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: Task or user not found
           content:
             text/plain:
               schema:
@@ -1491,7 +1553,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to assign users
           content:
             text/plain:
               schema:
@@ -1505,16 +1567,19 @@ paths:
     get:
       tags:
         - Task
+      summary: Retrieves all assignees of a task
+      description: "Required permissions:\r\n- Project member access, or\r\n- Admin access"
       parameters:
         - name: taskId
           in: path
+          description: The unique identifier of the task
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: List of task assignees
           content:
             text/plain:
               schema:
@@ -1532,7 +1597,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/TaskAssigneeReadDto'
         '404':
-          description: Not Found
+          description: Task not found
           content:
             text/plain:
               schema:
@@ -1544,7 +1609,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: User does not have access to view task assignees
           content:
             text/plain:
               schema:
@@ -1559,24 +1624,28 @@ paths:
     delete:
       tags:
         - Task
+      summary: Removes an assignee from a task
+      description: "Required permissions:\r\n- Project member access, or\r\n- Admin access"
       parameters:
         - name: taskId
           in: path
+          description: The unique identifier of the task
           required: true
           schema:
             type: string
             format: uuid
         - name: userId
           in: path
+          description: The ID of the user to remove from the task
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '204':
-          description: No Content
+          description: Assignee successfully removed
         '404':
-          description: Not Found
+          description: Task or assignee not found
           content:
             text/plain:
               schema:
@@ -1588,7 +1657,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to remove assignee
           content:
             text/plain:
               schema:
@@ -1603,16 +1672,19 @@ paths:
     get:
       tags:
         - Task
+      summary: Retrieves all comments on a task
+      description: "Required permissions:\r\n- Project member access, or\r\n- Admin access"
       parameters:
         - name: taskId
           in: path
+          description: The unique identifier of the task
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: List of task comments
           content:
             text/plain:
               schema:
@@ -1630,7 +1702,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/CommentReadDto'
         '404':
-          description: Not Found
+          description: Task not found
           content:
             text/plain:
               schema:
@@ -1642,7 +1714,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: User does not have access to view task comments
           content:
             text/plain:
               schema:
@@ -1656,14 +1728,18 @@ paths:
     post:
       tags:
         - Task
+      summary: Adds a new comment to a task
+      description: "Sample request:\r\n            \r\n    POST /api/v1/Task/{taskId}/comments\r\n    {\r\n        \"content\": \"This is a comment on the task\"\r\n    }"
       parameters:
         - name: taskId
           in: path
+          description: The unique identifier of the task
           required: true
           schema:
             type: string
             format: uuid
       requestBody:
+        description: Comment creation request
         content:
           application/json-patch+json:
             schema:
@@ -1679,7 +1755,7 @@ paths:
               $ref: '#/components/schemas/AddCommentRequest'
       responses:
         '201':
-          description: Created
+          description: Comment successfully added
           content:
             text/plain:
               schema:
@@ -1691,7 +1767,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CommentReadDto'
         '400':
-          description: Bad Request
+          description: Invalid comment data
           content:
             text/plain:
               schema:
@@ -1703,7 +1779,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: Comment not found
           content:
             text/plain:
               schema:
@@ -1715,7 +1791,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: User does not have access to comment on this task
           content:
             text/plain:
               schema:
@@ -1730,7 +1806,10 @@ paths:
     post:
       tags:
         - User
+      summary: Authenticates a user and returns a JWT token
+      description: "Sample request:\r\n            \r\n    POST /api/v1/User/login\r\n    {\r\n        \"username\": \"johndoe\",\r\n        \"password\": \"password123\"\r\n    }"
       requestBody:
+        description: Login credentials
         content:
           application/json-patch+json:
             schema:
@@ -1746,7 +1825,7 @@ paths:
               $ref: '#/components/schemas/TokenRequest'
       responses:
         '200':
-          description: OK
+          description: Authentication successful
           content:
             text/plain:
               schema:
@@ -1758,7 +1837,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/LoginResponse'
         '401':
-          description: Unauthorized
+          description: Invalid credentials
           content:
             text/plain:
               schema:
@@ -1773,9 +1852,11 @@ paths:
     get:
       tags:
         - User
+      summary: Retrieves the current authenticated user's information
+      description: Requires authentication via JWT token
       responses:
         '200':
-          description: OK
+          description: Returns the current user's information
           content:
             text/plain:
               schema:
@@ -1787,7 +1868,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserReadDto'
         '401':
-          description: Unauthorized
+          description: User is not authenticated
           content:
             text/plain:
               schema:
@@ -1802,7 +1883,10 @@ paths:
     post:
       tags:
         - User
+      summary: Registers a new user
+      description: "Sample request:\r\n            \r\n    POST /api/v1/User/register\r\n    {\r\n        \"userName\": \"johndoe\",\r\n        \"name\": \"John Doe\",\r\n        \"email\": \"john.doe@example.com\",\r\n        \"password\": \"password123\",\r\n        \"accessLevel\": \"Member\"\r\n    }"
       requestBody:
+        description: User registration details
         content:
           application/json-patch+json:
             schema:
@@ -1818,7 +1902,7 @@ paths:
               $ref: '#/components/schemas/UserCreateDto'
       responses:
         '201':
-          description: Created
+          description: User successfully registered
           content:
             text/plain:
               schema:
@@ -1830,7 +1914,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserReadDto'
         '400':
-          description: Bad Request
+          description: Invalid registration data or username already exists
           content:
             text/plain:
               schema:
@@ -1845,16 +1929,19 @@ paths:
     get:
       tags:
         - User
+      summary: Retrieves a user by their ID
+      description: Users can only view their own profile unless they have Admin access
       parameters:
         - name: userId
           in: path
+          description: The unique identifier of the user
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: Returns the requested user's information
           content:
             text/plain:
               schema:
@@ -1866,7 +1953,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserReadDto'
         '404':
-          description: Not Found
+          description: User not found
           content:
             text/plain:
               schema:
@@ -1878,7 +1965,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to view user
           content:
             text/plain:
               schema:
@@ -1892,14 +1979,18 @@ paths:
     put:
       tags:
         - User
+      summary: Updates a user's information
+      description: Users can only update their own profile unless they have Admin access
       parameters:
         - name: userId
           in: path
+          description: The unique identifier of the user to update
           required: true
           schema:
             type: string
             format: uuid
       requestBody:
+        description: Updated user information
         content:
           application/json-patch+json:
             schema:
@@ -1915,7 +2006,7 @@ paths:
               $ref: '#/components/schemas/UserUpdateDto'
       responses:
         '200':
-          description: OK
+          description: User successfully updated
           content:
             text/plain:
               schema:
@@ -1927,7 +2018,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserReadDto'
         '400':
-          description: Bad Request
+          description: Invalid update data
           content:
             text/plain:
               schema:
@@ -1939,7 +2030,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: User not found
           content:
             text/plain:
               schema:
@@ -1951,7 +2042,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to update user
           content:
             text/plain:
               schema:
@@ -1965,18 +2056,21 @@ paths:
     delete:
       tags:
         - User
+      summary: Deletes a user account
+      description: Users can only delete their own account unless they have Admin access
       parameters:
         - name: userId
           in: path
+          description: The unique identifier of the user to delete
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '204':
-          description: No Content
+          description: User successfully deleted
         '404':
-          description: Not Found
+          description: User not found
           content:
             text/plain:
               schema:
@@ -1988,7 +2082,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to delete user
           content:
             text/plain:
               schema:
@@ -2003,9 +2097,11 @@ paths:
     get:
       tags:
         - User
+      summary: Retrieves all users in the system
+      description: "Required permissions:\r\n- Admin access level"
       responses:
         '200':
-          description: OK
+          description: Returns list of all users
           content:
             text/plain:
               schema:
@@ -2023,7 +2119,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/UserReadDto'
         '403':
-          description: Forbidden
+          description: User is not an administrator
           content:
             text/plain:
               schema:
@@ -2038,18 +2134,21 @@ paths:
     delete:
       tags:
         - Workspaces
+      summary: Deletes a workspace
+      description: "Required permissions:\r\n- Workspace Owner access level, or\r\n- Admin access"
       parameters:
         - name: workspaceId
           in: path
+          description: The unique identifier of the workspace to delete
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '204':
-          description: No Content
+          description: Workspace successfully deleted
         '404':
-          description: Not Found
+          description: Workspace not found
           content:
             text/plain:
               schema:
@@ -2061,7 +2160,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to delete workspace
           content:
             text/plain:
               schema:
@@ -2072,19 +2171,24 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: User ID is null
     get:
       tags:
         - Workspaces
+      summary: Retrieves a specific workspace by ID
+      description: "Required permissions:\r\n- Workspace member access, or\r\n- Admin access"
       parameters:
         - name: workspaceId
           in: path
+          description: The unique identifier of the workspace
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: The requested workspace
           content:
             text/plain:
               schema:
@@ -2096,7 +2200,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/WorkspaceReadDto'
         '404':
-          description: Not Found
+          description: Workspace not found
           content:
             text/plain:
               schema:
@@ -2108,7 +2212,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to access workspace
           content:
             text/plain:
               schema:
@@ -2119,17 +2223,23 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: User ID is null
     put:
       tags:
         - Workspaces
+      summary: Updates an existing workspace
+      description: "Required permissions:\r\n- Workspace Owner access level, or\r\n- Admin access"
       parameters:
         - name: workspaceId
           in: path
+          description: The unique identifier of the workspace to update
           required: true
           schema:
             type: string
             format: uuid
       requestBody:
+        description: Updated workspace details
         content:
           application/json-patch+json:
             schema:
@@ -2145,7 +2255,7 @@ paths:
               $ref: '#/components/schemas/WorkspaceUpdateDto'
       responses:
         '200':
-          description: OK
+          description: Workspace successfully updated
           content:
             text/plain:
               schema:
@@ -2157,7 +2267,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/WorkspaceReadDto'
         '404':
-          description: Not Found
+          description: Workspace not found
           content:
             text/plain:
               schema:
@@ -2169,7 +2279,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to update workspace
           content:
             text/plain:
               schema:
@@ -2180,11 +2290,16 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: Invalid update data or user ID is null
   /api/v1/Workspaces/members/access:
     put:
       tags:
         - Workspaces
+      summary: Updates a workspace member's access level
+      description: "Required permissions:\r\n- Workspace Owner access level, or\r\n- Admin access\r\n            \r\nAccess level restrictions:\r\n- Cannot assign higher access than your own level (except admins)\r\n- Cannot modify access if you're below Owner level"
       requestBody:
+        description: The member elevation details including member ID and new access level
         content:
           application/json-patch+json:
             schema:
@@ -2200,7 +2315,7 @@ paths:
               $ref: '#/components/schemas/MemberElevationDto'
       responses:
         '200':
-          description: OK
+          description: Member access level successfully updated
           content:
             text/plain:
               schema:
@@ -2212,7 +2327,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/WorkspaceMemberReadDto'
         '404':
-          description: Not Found
+          description: Workspace member not found
           content:
             text/plain:
               schema:
@@ -2224,7 +2339,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to modify access levels
           content:
             text/plain:
               schema:
@@ -2235,13 +2350,17 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: Invalid elevation data or user ID is null
   /api/v1/Workspaces:
     get:
       tags:
         - Workspaces
+      summary: Retrieves all workspaces accessible to the user
+      description: "Returns:\r\n- All workspaces for Admin users\r\n- Only workspaces where the user is a member for non-Admin users"
       responses:
         '200':
-          description: OK
+          description: List of accessible workspaces
           content:
             text/plain:
               schema:
@@ -2258,10 +2377,15 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/WorkspaceReadDto'
+        '400':
+          description: User ID is null
     post:
       tags:
         - Workspaces
+      summary: Creates a new workspace
+      description: "Sample request:\r\n            \r\n    POST /api/v1/Workspaces\r\n    {\r\n        \"name\": \"New Workspace\"\r\n    }\r\n            \r\nThe creator is automatically added as a workspace owner."
       requestBody:
+        description: Workspace creation details
         content:
           application/json-patch+json:
             schema:
@@ -2277,7 +2401,7 @@ paths:
               $ref: '#/components/schemas/WorkspaceCreateDto'
       responses:
         '201':
-          description: Created
+          description: Workspace successfully created
           content:
             text/plain:
               schema:
@@ -2288,20 +2412,25 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/WorkspaceReadDto'
+        '400':
+          description: Invalid workspace data or user ID is null
   '/api/v1/Workspaces/{workspaceId}/members':
     get:
       tags:
         - Workspaces
+      summary: Retrieves all members of a workspace
+      description: "Required permissions:\r\n- Workspace member access, or\r\n- Admin access"
       parameters:
         - name: workspaceId
           in: path
+          description: The unique identifier of the workspace
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: List of workspace members
           content:
             text/plain:
               schema:
@@ -2319,7 +2448,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/WorkspaceMemberReadDto'
         '404':
-          description: Not Found
+          description: Workspace not found
           content:
             text/plain:
               schema:
@@ -2331,7 +2460,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to view members
           content:
             text/plain:
               schema:
@@ -2342,17 +2471,23 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: User ID is null
     post:
       tags:
         - Workspaces
+      summary: Adds a new member to a workspace
+      description: "Required permissions:\r\n- Workspace Owner access level, or\r\n- Admin access"
       parameters:
         - name: workspaceId
           in: path
+          description: The unique identifier of the workspace
           required: true
           schema:
             type: string
             format: uuid
       requestBody:
+        description: Member creation details
         content:
           application/json-patch+json:
             schema:
@@ -2368,7 +2503,7 @@ paths:
               $ref: '#/components/schemas/WorkspaceMemberCreateDto'
       responses:
         '201':
-          description: Created
+          description: Member successfully added to workspace
           content:
             text/plain:
               schema:
@@ -2380,7 +2515,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/WorkspaceMemberReadDto'
         '404':
-          description: Not Found
+          description: Workspace not found
           content:
             text/plain:
               schema:
@@ -2392,7 +2527,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to add members
           content:
             text/plain:
               schema:
@@ -2403,20 +2538,25 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: Invalid member data or user ID is null
   '/api/v1/Workspaces/{workspaceId}/projects':
     get:
       tags:
         - Workspaces
+      summary: Retrieves all projects in a workspace
+      description: "Required permissions:\r\n- Workspace member access, or\r\n- Admin access"
       parameters:
         - name: workspaceId
           in: path
+          description: The unique identifier of the workspace
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: OK
+          description: List of workspace projects
           content:
             text/plain:
               schema:
@@ -2434,7 +2574,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/ProjectReadDto'
         '404':
-          description: Not Found
+          description: Workspace not found
           content:
             text/plain:
               schema:
@@ -2446,7 +2586,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to view projects
           content:
             text/plain:
               schema:
@@ -2457,18 +2597,24 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: User ID is null
   '/api/v1/Workspaces/members/{memberId}/access':
     put:
       tags:
         - Workspaces
+      summary: Updates a member's access level within a workspace
+      description: "Required permissions:\r\n- Workspace Owner access level, or\r\n- Admin access\r\n            \r\nAccess level restrictions:\r\n- Cannot assign higher access than your own level (except admins)\r\n- Cannot modify access if you're below Owner level"
       parameters:
         - name: memberId
           in: path
+          description: The unique identifier of the workspace member
           required: true
           schema:
             type: string
             format: uuid
       requestBody:
+        description: Updated access level details
         content:
           application/json-patch+json:
             schema:
@@ -2484,7 +2630,7 @@ paths:
               $ref: '#/components/schemas/WorkspaceMemberUpdateDto'
       responses:
         '200':
-          description: OK
+          description: Member access level successfully updated
           content:
             text/plain:
               schema:
@@ -2496,7 +2642,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/WorkspaceMemberReadDto'
         '404':
-          description: Not Found
+          description: Workspace or member not found
           content:
             text/plain:
               schema:
@@ -2508,7 +2654,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Insufficient permissions to modify access levels
           content:
             text/plain:
               schema:
@@ -2519,6 +2665,8 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '400':
+          description: Invalid update data or user ID is null
 components:
   schemas:
     AccessLevel:

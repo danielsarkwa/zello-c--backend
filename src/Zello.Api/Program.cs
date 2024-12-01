@@ -6,8 +6,6 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Newtonsoft.Json;
 using Npgsql;
-using Zello.Application.Interfaces;
-using Zello.Application.Services;
 using Zello.Application.ServiceInterfaces;
 using Zello.Application.ServiceImplementations;
 using Zello.Application.ServiceInterfaces.ExceptionInterfaces;

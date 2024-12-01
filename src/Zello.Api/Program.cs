@@ -5,6 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Newtonsoft.Json;
+using Npgsql;
+using Zello.Application.Interfaces;
+using Zello.Application.Services;
 using Zello.Application.ServiceInterfaces;
 using Zello.Application.ServiceImplementations;
 using Zello.Application.ServiceInterfaces.ExceptionInterfaces;
@@ -18,11 +21,29 @@ using Zello.Domain.Abstractions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+
 #region Service Configuration
+
+builder.Configuration.AddUserSecrets<Program>();
+
+var password = builder.Configuration["NEON_DB_PASSWORD"];
+Console.WriteLine($"Password length: {password?.Length ?? 0}");
+
+// Manually construct connection string
+var manualConnectionString = new NpgsqlConnectionStringBuilder
+{
+    Host = "ep-shy-silence-a2w59vfl.eu-central-1.aws.neon.tech",
+    Database = "ZelloDB",
+    Username = "ZelloDB_owner",
+    Password = password,
+    SslMode = SslMode.Require,
+}.ToString();
+
+Console.WriteLine($"Manual connection string: {manualConnectionString}");
 
 // Database Context
 builder.Services.AddDbContext<ApplicationDbContext>(options => {
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
+    options.UseNpgsql(manualConnectionString,
         npgsqlOptions => {
             npgsqlOptions.EnableRetryOnFailure(
                 maxRetryCount: 3,

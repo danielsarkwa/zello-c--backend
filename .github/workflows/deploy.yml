@@ -1,7 +1,11 @@
 ﻿name: Build, Check Style and Deploy
 
+env:
+  AZURE_WEBAPP_NAME: Zello123
+  AZURE_WEBAPP_PACKAGE_PATH: '.'
+  NEON_DB_PASSWORD: ${{ secrets.NEON_DB_PASSWORD }}
+
 on:
-  # For style checks and tests
   push:
     branches: [ main ]
     paths-ignore:
@@ -10,8 +14,6 @@ on:
     branches: [ main ]
     paths-ignore:
       - 'Documentation/**'
-  
-  # For manual documentation generation
   workflow_dispatch:
 
 permissions:
@@ -24,15 +26,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '8.0.x'
-
       - name: Restore dependencies
         run: dotnet restore
-
       - name: Build source projects
         run: |
           dotnet build src/Zello.Domain/Zello.Domain.csproj --no-restore /warnaserror
@@ -44,15 +43,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '8.0.x'
-
       - name: Install dotnet-format
         run: dotnet tool install -g dotnet-format
-
       - name: Create .editorconfig
         run: |
           cat > .editorconfig << 'EOL'
@@ -94,16 +90,12 @@ jobs:
           csharp_preserve_single_line_blocks = true
           max_line_length = 100
           EOL
-
       - name: Restore dependencies
         run: dotnet restore
-
       - name: Check code format
         run: |
-          # First check if any files need formatting
           if ! dotnet format --verify-no-changes; then
             echo "Code formatting issues found. Running format check in detail..."
-            # Run again to show the specific files that need formatting
             dotnet format --verify-no-changes
             exit 1
           fi
@@ -112,41 +104,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '8.0.x'
-
       - name: Restore dependencies
         run: dotnet restore
-
       - name: Run tests
         run: dotnet test --no-restore --verbosity normal
-  
+
   build-docs:
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ERD-Diagram'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout your repository using git
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22.11.0'
-
       - name: Install Playwright browsers
         run: |
           cd Documentation
           npm install -D @playwright/test
           npx playwright install chromium
-
       - name: Install, build, and upload your site
         uses: withastro/action@v3
         with:
           path: ./Documentation
-  
+
   deploy-docs:
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ERD-Diagram'
     needs: build-docs
@@ -158,3 +144,29 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  build-and-deploy:
+    if: always()
+    needs: [ analyze, style-check, test ]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build and publish
+        run: |
+          dotnet build src/Zello.Api/Zello.Api.csproj --configuration Release --no-restore
+          dotnet publish src/Zello.Api/Zello.Api.csproj -c Release -o ${{env.AZURE_WEBAPP_PACKAGE_PATH}}/myapp
+      - name: Deploy to Azure Web Apps
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ${{env.AZURE_WEBAPP_PACKAGE_PATH}}/myapp

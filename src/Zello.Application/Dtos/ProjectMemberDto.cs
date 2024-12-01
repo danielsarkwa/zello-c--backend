@@ -21,9 +21,8 @@ public class ProjectMemberReadDto {
     [JsonProperty("created_date")]
     public DateTime CreatedDate { get; set; }
 
-    // Keep only WorkspaceMember, remove Project to break circular reference
     [JsonProperty("workspace_member")]
-    public WorkspaceMemberReadDto WorkspaceMember { get; set; } = new WorkspaceMemberReadDto();
+    public WorkspaceMemberReadDto? WorkspaceMember { get; set; } // Make it nullable
 
     public static ProjectMemberReadDto FromEntity(ProjectMember projectMember) {
         return new ProjectMemberReadDto {
@@ -32,7 +31,9 @@ public class ProjectMemberReadDto {
             WorkspaceMemberId = projectMember.WorkspaceMemberId,
             AccessLevel = projectMember.AccessLevel,
             CreatedDate = projectMember.CreatedDate,
-            WorkspaceMember = WorkspaceMemberReadDto.FromEntity(projectMember.WorkspaceMember)
+            WorkspaceMember = projectMember.WorkspaceMember != null
+                ? WorkspaceMemberReadDto.FromEntity(projectMember.WorkspaceMember)
+                : null
         };
     }
 }

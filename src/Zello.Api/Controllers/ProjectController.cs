@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Zello.Application.Dtos;
+using Zello.Application.ServiceInterfaces;
 using Zello.Domain.Entities;
 using Zello.Domain.Entities.Api.User;
-using Zello.Infrastructure.Data;
 using Zello.Infrastructure.Helpers;
 
 namespace Zello.Api.Controllers;
@@ -11,10 +11,13 @@ namespace Zello.Api.Controllers;
 [ApiController]
 [Route("api/v1/[controller]")]
 public sealed class ProjectController : ControllerBase {
-    private readonly ApplicationDbContext _context;
+    private readonly IProjectService _projectService;
+    private readonly IAuthorizationService _authorizationService;
 
-    public ProjectController(ApplicationDbContext context) {
-        _context = context;
+    public ProjectController(IProjectService projectService,
+        IAuthorizationService authorizationService) {
+        _projectService = projectService;
+        _authorizationService = authorizationService;
     }
 
     [HttpPost]
@@ -29,52 +32,24 @@ public sealed class ProjectController : ControllerBase {
             var userAccess = ClaimsHelper.GetUserAccessLevel(User);
             if (userId == null) return BadRequest("User ID cannot be null.");
 
-            // Verify workspace exists and user has appropriate access
-            var workspace = await _context.Workspaces
-                .Include(w => w.Members)
-                .FirstOrDefaultAsync(w => w.Id == projectDto.WorkspaceId);
+            // Verify user has appropriate access in the workspace
+            var hasAccess = await _authorizationService.AuthorizeWorkspaceMembershipAsync(
+                projectDto.WorkspaceId, userId.Value);
 
-            if (workspace == null)
-                return NotFound("Invalid workspace ID");
+            if (!hasAccess) return Forbid("User is not a member of the workspace");
 
-            var workspaceMember = workspace.Members
-                .FirstOrDefault(m => m.UserId == userId.Value);
+            // check if the user has suffient permissions to create a project
+            var hasPermission = await _authorizationService.AuthorizeProjectAccessAsync(
+                userId.Value, projectDto.WorkspaceId, AccessLevel.Member);
 
-            if (workspaceMember == null && userAccess != AccessLevel.Admin)
-                return Forbid("User is not a member of the workspace");
+            var project = await _projectService.CreateProjectAsync(projectDto, userId.Value);
 
-            // Only workspace members with Member access or above can create projects
-            if (workspaceMember?.AccessLevel < AccessLevel.Member &&
-                userAccess != AccessLevel.Admin)
-                return Forbid("Insufficient permissions to create projects");
-
-            var project = projectDto.ToEntity();
-
-            var projectMember = new ProjectMember {
-                Id = Guid.NewGuid(),
-                ProjectId = project.Id,
-                WorkspaceMemberId = workspaceMember!.Id,
-                AccessLevel = AccessLevel.Owner,
-                CreatedDate = DateTime.UtcNow
-            };
-
-            await _context.Projects.AddAsync(project);
-            await _context.ProjectMembers.AddAsync(projectMember);
-            await _context.SaveChangesAsync();
-
-            var createdProject = await _context.Projects
-                .Include(p => p.Members)
-                .FirstOrDefaultAsync(p => p.Id == project.Id);
-
-            return CreatedAtAction(nameof(GetProjectById),
-                new { projectId = project.Id },
-                ProjectReadDto.FromEntity(createdProject!));
+            return CreatedAtAction(nameof(GetProjectById), new { projectId = project.Id }, project);
         } catch (Exception e) {
             return StatusCode(500, "Internal server error: " + e.Message);
         }
     }
 
-    // In ProjectController.cs
     /// <summary>
     /// Updates the access level of a project member
     /// </summary>
@@ -103,44 +78,22 @@ public sealed class ProjectController : ControllerBase {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
         var userId = ClaimsHelper.GetUserId(User);
-        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
+        var userAccess = ClaimsHelper.GetUserAccessLevel(User) ?? AccessLevel.Guest;
         if (userId == null) return BadRequest("User ID cannot be null.");
 
-        var projectMember = await _context.ProjectMembers
-            .Include(pm => pm.Project)
-            .ThenInclude(p => p.Members)
-            .ThenInclude(m => m.WorkspaceMember)
-            .Include(pm => pm.WorkspaceMember)
-            .FirstOrDefaultAsync(pm => pm.Id == elevation.MemberId);
+        try {
+            var projectMember = await _projectService.UpdateMemberAccessAsync(
+                elevation.MemberId,
+                elevation.NewAccessLevel,
+                userId.Value,
+                userAccess);
 
-        if (projectMember == null)
-            return NotFound("Project member not found");
-
-        // Check if current user has access to manage members
-        var currentProjectMember = projectMember.Project.Members
-            .FirstOrDefault(pm => pm.WorkspaceMember.UserId == userId);
-
-        bool hasAccess = userAccess == AccessLevel.Admin ||
-                         (currentProjectMember?.AccessLevel >= AccessLevel.Owner);
-
-        if (!hasAccess)
-            return Forbid("Insufficient permissions to manage member access levels");
-
-        // Cannot assign higher access than own level
-        if (currentProjectMember != null &&
-            elevation.NewAccessLevel > currentProjectMember.AccessLevel &&
-            userAccess != AccessLevel.Admin)
-            return Forbid("Cannot assign access level higher than your own");
-
-        // Cannot exceed workspace access level
-        if (elevation.NewAccessLevel > projectMember.WorkspaceMember.AccessLevel)
-            return Forbid(
-                "Cannot assign project access level higher than user's workspace access level");
-
-        projectMember.AccessLevel = elevation.NewAccessLevel;
-        await _context.SaveChangesAsync();
-
-        return Ok(ProjectMemberReadDto.FromEntity(projectMember));
+            return Ok(ProjectMemberReadDto.FromEntity(projectMember));
+        } catch (UnauthorizedAccessException ex) {
+            return Forbid(ex.Message);
+        } catch (KeyNotFoundException ex) {
+            return NotFound(ex.Message);
+        }
     }
 
 
@@ -153,24 +106,23 @@ public sealed class ProjectController : ControllerBase {
         var userAccess = ClaimsHelper.GetUserAccessLevel(User);
         if (userId == null) return BadRequest("User ID cannot be null.");
 
-        var project = await _context.Projects
-            .Include(p => p.Members)
-            .ThenInclude(pm => pm.WorkspaceMember)
-            .Include(p => p.Lists)
-            .FirstOrDefaultAsync(p => p.Id == projectId);
+        try {
+            var project = await _projectService.GetProjectByIdAsync(projectId);
 
-        if (project == null)
+            if (project == null)
+                return NotFound($"Project with ID {projectId} not found");
+
+            // verfrify user has access to the project
+            var hasAccess =
+                await _authorizationService.AuthorizeProjectMembershipAsync(userId.Value,
+                    projectId);
+
+            if (!hasAccess) return Forbid("User does not have access to this project");
+
+            return Ok(project);
+        } catch (KeyNotFoundException) {
             return NotFound($"Project with ID {projectId} not found");
-
-        bool hasAccess = userAccess == AccessLevel.Admin ||
-                         project.Members.Any(pm =>
-                             pm.WorkspaceMember.UserId == userId
-                         );
-
-        if (!hasAccess)
-            return Forbid("User does not have access to this project");
-
-        return Ok(ProjectReadDto.FromEntity(project));
+        }
     }
 
     [HttpGet]
@@ -181,27 +133,18 @@ public sealed class ProjectController : ControllerBase {
         var userAccess = ClaimsHelper.GetUserAccessLevel(User);
         if (userId == null) return BadRequest("User ID cannot be null.");
 
-        var query = _context.Projects
-            .Include(p => p.Lists)
-            .ThenInclude(l => l.Tasks)
-            .Include(p => p.Members)
-            .ThenInclude(pm => pm.WorkspaceMember)
-            .AsQueryable();
-
-        if (workspaceId.HasValue)
-            query = query.Where(p => p.WorkspaceId == workspaceId.Value);
+        var projects = await _projectService.GetAllProjectsAsync(workspaceId);
 
         // Filter to only show projects where user is a member or is admin
         if (userAccess != AccessLevel.Admin) {
-            query = query.Where(p =>
+            projects = projects.Where(p =>
                 p.Members.Any(pm =>
                     pm.WorkspaceMember.UserId == userId
                 )
-            );
+            ).ToList();
         }
 
-        var projects = await query.ToListAsync();
-        return Ok(projects.Select(ProjectReadDto.FromEntity));
+        return Ok(projects);
     }
 
     [HttpPut("{projectId}")]
@@ -219,28 +162,23 @@ public sealed class ProjectController : ControllerBase {
         if (userId == null) return BadRequest("User ID cannot be null.");
 
         try {
-            var project = await _context.Projects
-                .Include(p => p.Members)
-                .ThenInclude(pm => pm.WorkspaceMember)
-                .Include(p => p.Lists)
-                .FirstOrDefaultAsync(p => p.Id == projectId);
+            var project = await _projectService.UpdateProjectAsync(projectId, updatedProject);
 
             if (project == null)
                 return NotFound($"Project with ID {projectId} not found");
 
-            var projectMember = project.Members
-                .FirstOrDefault(pm => pm.WorkspaceMember.UserId == userId);
+            // Check if current user has access to manage members
+            var currentProjectMember = project.Members
+                .FirstOrDefault(pm => pm.WorkspaceMember != null &&
+                                      pm.WorkspaceMember.UserId == userId);
 
             bool hasAccess = userAccess == AccessLevel.Admin ||
-                             (projectMember?.AccessLevel >= AccessLevel.Member);
+                             (currentProjectMember?.AccessLevel >= AccessLevel.Owner);
 
             if (!hasAccess)
                 return Forbid("Insufficient permissions to update project");
 
-            project = updatedProject.ToEntity(project);
-            await _context.SaveChangesAsync();
-
-            return Ok(ProjectReadDto.FromEntity(project));
+            return Ok(project);
         } catch (Exception e) {
             return StatusCode(500, "Internal server error: " + e.Message);
         }
@@ -255,28 +193,25 @@ public sealed class ProjectController : ControllerBase {
         var userAccess = ClaimsHelper.GetUserAccessLevel(User);
         if (userId == null) return BadRequest("User ID cannot be null.");
 
-        var project = await _context.Projects
-            .Include(p => p.Members)
-            .ThenInclude(pm => pm.WorkspaceMember)
-            .Include(p => p.Lists)
-            .FirstOrDefaultAsync(p => p.Id == projectId);
+        try {
+            var project = await _projectService.GetProjectByIdAsync(projectId);
 
-        if (project == null)
+            // Check if current user has access to manage members
+            var currentProjectMember = project.Members
+                .FirstOrDefault(pm => pm.WorkspaceMember != null &&
+                                      pm.WorkspaceMember.UserId == userId);
+
+            bool hasAccess = userAccess == AccessLevel.Admin ||
+                             (currentProjectMember?.AccessLevel >= AccessLevel.Owner);
+
+            if (!hasAccess)
+                return Forbid("Insufficient permissions to update project");
+
+            await _projectService.DeleteProjectAsync(projectId);
+            return NoContent();
+        } catch (KeyNotFoundException) {
             return NotFound($"Project with ID {projectId} not found");
-
-        var projectMember = project.Members
-            .FirstOrDefault(pm => pm.WorkspaceMember.UserId == userId);
-
-        bool hasAccess = userAccess == AccessLevel.Admin ||
-                         (projectMember?.AccessLevel >= AccessLevel.Owner);
-
-        if (!hasAccess)
-            return Forbid("Insufficient permissions to delete project");
-
-        _context.Projects.Remove(project);
-        await _context.SaveChangesAsync();
-
-        return NoContent();
+        }
     }
 
     [HttpPost("members")]
@@ -286,69 +221,24 @@ public sealed class ProjectController : ControllerBase {
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> AddProjectMember(
         [FromBody] ProjectMemberCreateDto createMember) {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+        if (!ModelState.IsValid) return BadRequest(ModelState);
 
         var userId = ClaimsHelper.GetUserId(User);
-        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
         if (userId == null) return BadRequest("User ID cannot be null.");
 
-        var project = await _context.Projects
-            .Include(p => p.Members)
-            .ThenInclude(pm => pm.WorkspaceMember)
-            .FirstOrDefaultAsync(p => p.Id == createMember.ProjectId);
-
-        if (project == null)
-            return NotFound($"Project with ID {createMember.ProjectId} not found");
-
-        // Check if current user has access to manage members
-        var currentProjectMember = project.Members
-            .FirstOrDefault(pm => pm.WorkspaceMember.UserId == userId);
-
-        bool hasAccess = userAccess == AccessLevel.Admin ||
-                         (currentProjectMember?.AccessLevel >= AccessLevel.Member);
-
-        if (!hasAccess)
-            return Forbid("Insufficient permissions to manage project members");
-
-        // Validate target workspace member
-        var targetWorkspaceMember = await _context.WorkspaceMembers
-            .FirstOrDefaultAsync(wm => wm.Id == createMember.WorkspaceMemberId);
-
-        if (targetWorkspaceMember == null)
-            return BadRequest("Invalid workspace member ID");
-
-        if (targetWorkspaceMember.WorkspaceId != project.WorkspaceId)
-            return BadRequest("Workspace member does not belong to the project's workspace");
-
-        // Cannot assign higher access than own level
-        if (currentProjectMember != null &&
-            createMember.AccessLevel > currentProjectMember.AccessLevel &&
-            userAccess != AccessLevel.Admin)
-            return Forbid("Cannot assign access level higher than your own");
-
-        // Cannot exceed workspace access level
-        if (createMember.AccessLevel > targetWorkspaceMember.AccessLevel)
-            return Forbid(
-                "Cannot assign project access level higher than user's workspace access level");
-
-        if (project.Members.Any(m => m.WorkspaceMemberId == createMember.WorkspaceMemberId))
-            return BadRequest("Member already exists in project");
-
-        var projectMember = new ProjectMember {
-            Id = Guid.NewGuid(),
-            ProjectId = createMember.ProjectId,
-            WorkspaceMemberId = createMember.WorkspaceMemberId,
-            AccessLevel = createMember.AccessLevel,
-            CreatedDate = DateTime.UtcNow
-        };
-
-        await _context.ProjectMembers.AddAsync(projectMember);
-        await _context.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(GetProjectById),
-            new { projectId = createMember.ProjectId },
-            ProjectMemberReadDto.FromEntity(projectMember));
+        try {
+            var projectMember =
+                await _projectService.AddProjectMemberAsync(createMember, userId.Value);
+            return CreatedAtAction(nameof(GetProjectById),
+                new { projectId = createMember.ProjectId },
+                ProjectMemberReadDto.FromEntity(projectMember));
+        } catch (UnauthorizedAccessException ex) {
+            return Forbid(ex.Message);
+        } catch (InvalidOperationException ex) {
+            return BadRequest(ex.Message);
+        } catch (KeyNotFoundException ex) {
+            return NotFound(ex.Message);
+        }
     }
 
     [HttpPost("{projectId}/lists")]
@@ -356,49 +246,28 @@ public sealed class ProjectController : ControllerBase {
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> CreateList(Guid projectId, [FromBody] ListCreateDto listDto) {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+    public async Task<IActionResult> CreateList(Guid projectId, [FromBody] ListCreateDto model) {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
 
         var userId = ClaimsHelper.GetUserId(User);
-        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
         if (userId == null) return BadRequest("User ID cannot be null.");
 
-        var project = await _context.Projects
-            .Include(p => p.Members)
-            .ThenInclude(pm => pm.WorkspaceMember)
-            .FirstOrDefaultAsync(p => p.Id == projectId);
+        // Check authorization first
+        var isAuthorized =
+            await _authorizationService.AuthorizeProjectMembershipAsync(userId.Value, projectId);
+        if (!isAuthorized) return Forbid();
 
-        if (project == null)
-            return NotFound($"Project with ID {projectId} not found");
-
-        var projectMember = project.Members
-            .FirstOrDefault(pm => pm.WorkspaceMember.UserId == userId);
-
-        bool hasAccess = userAccess == AccessLevel.Admin ||
-                         (projectMember?.AccessLevel >= AccessLevel.Member);
-
-        if (!hasAccess)
-            return Forbid("Insufficient permissions to create lists");
-
-        var maxPosition = await _context.Lists
-            .Where(l => l.ProjectId == projectId)
-            .MaxAsync(l => (int?)l.Position) ?? -1;
-
-        var list = new TaskList {
-            Id = Guid.NewGuid(),
-            ProjectId = projectId,
-            Name = listDto.Name,
-            Position = maxPosition + 1,
-            CreatedDate = DateTime.UtcNow
-        };
-
-        await _context.Lists.AddAsync(list);
-        await _context.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(GetProjectById),
-            new { projectId },
-            ListReadDto.FromEntity(list));
+        try {
+            var list = await _projectService.CreateListAsync(projectId, model);
+            var dto = ListReadDto.FromEntity(list);
+            return CreatedAtAction(
+                nameof(GetProjectById),
+                new { projectId },
+                dto
+            );
+        } catch (KeyNotFoundException ex) {
+            return NotFound(ex.Message);
+        }
     }
 
     [HttpGet("{projectId}/lists")]
@@ -407,31 +276,15 @@ public sealed class ProjectController : ControllerBase {
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetProjectLists(Guid projectId) {
         var userId = ClaimsHelper.GetUserId(User);
-        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
         if (userId == null) return BadRequest("User ID cannot be null.");
 
-        var project = await _context.Projects
-            .Include(p => p.Members)
-            .ThenInclude(pm => pm.WorkspaceMember)
-            .FirstOrDefaultAsync(p => p.Id == projectId);
-
-        if (project == null)
-            return NotFound($"Project with ID {projectId} not found");
-
-        bool hasAccess = userAccess == AccessLevel.Admin ||
-                         project.Members.Any(pm =>
-                             pm.WorkspaceMember.UserId == userId
-                         );
-
-        if (!hasAccess)
+        try {
+            var lists = await _projectService.GetProjectListsAsync(projectId);
+            return Ok(lists.Select(ListReadDto.FromEntity));
+        } catch (KeyNotFoundException ex) {
+            return NotFound(ex.Message);
+        } catch (UnauthorizedAccessException) {
             return Forbid("User does not have access to this project");
-
-        var lists = await _context.Lists
-            .Include(l => l.Tasks)
-            .Where(l => l.ProjectId == projectId)
-            .OrderBy(l => l.Position)
-            .ToListAsync();
-
-        return Ok(lists.Select(ListReadDto.FromEntity));
+        }
     }
 }

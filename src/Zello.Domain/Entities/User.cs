@@ -1,7 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Zello.Domain.Entities;
 using Zello.Domain.Entities.Api.User;
+
+namespace Zello.Domain.Entities;
 
 [Table("users")]
 public class User {

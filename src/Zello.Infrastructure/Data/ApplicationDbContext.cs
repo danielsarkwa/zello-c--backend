@@ -25,6 +25,17 @@ public class ApplicationDbContext : DbContext {
             .Property(e => e.AccessLevel)
             .HasConversion<string>();
 
+        // Configure enum conversions using string values
+        modelBuilder.Entity<User>()
+            .Property(e => e.AccessLevel)
+            .HasConversion<string>();
+
+        // Add unique index on Username
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Username)
+            .IsUnique();
+
+
         modelBuilder.Entity<Project>()
             .Property(e => e.Status)
             .HasConversion<string>();

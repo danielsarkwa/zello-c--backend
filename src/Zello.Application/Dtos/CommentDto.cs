@@ -40,10 +40,11 @@ public class CommentCreateDto {
     [JsonProperty("content")]
     public required string Content { get; set; }
 
-    public Comment ToEntity() {
+    public Comment ToEntity(Guid UserId, Guid? RequstTaskId) {
         return new Comment {
+            Id = Guid.NewGuid(),
             UserId = UserId,
-            TaskId = TaskId,
+            TaskId = RequstTaskId ?? TaskId,
             Content = Content,
             CreatedDate = DateTime.UtcNow
         };

@@ -347,8 +347,8 @@ public static class DatabaseSeeder {
         await context.Tasks.AddRangeAsync(tasks);
         await context.SaveChangesAsync();
 
-// Comments (expanded to 5 records)
-            var comments = new[] {
+        // Comments (expanded to 5 records)
+        var comments = new[] {
                 // Existing comments
                 new Comment {
                     Id = new Guid("55555555-6666-7777-8888-999999999999"),
@@ -388,11 +388,11 @@ public static class DatabaseSeeder {
                 }
             };
 
-            await context.Comments.AddRangeAsync(comments);
-            await context.SaveChangesAsync();
+        await context.Comments.AddRangeAsync(comments);
+        await context.SaveChangesAsync();
 
-            // Task Assignees (expanded to 5 records)
-            var taskAssignees = new[] {
+        // Task Assignees (expanded to 5 records)
+        var taskAssignees = new[] {
                 // Existing assignee
                 new TaskAssignee {
                     Id = new Guid("88888888-9999-aaaa-bbbb-cccccccccccc"),
@@ -427,9 +427,9 @@ public static class DatabaseSeeder {
                 }
             };
 
-            await context.TaskAssignees.AddRangeAsync(taskAssignees);
-            await context.SaveChangesAsync();
+        await context.TaskAssignees.AddRangeAsync(taskAssignees);
+        await context.SaveChangesAsync();
 
-            Console.WriteLine("Database seeded successfully!");
+        Console.WriteLine("Database seeded successfully!");
     }
 }

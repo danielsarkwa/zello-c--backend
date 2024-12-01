@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Newtonsoft.Json;
+using Zello.Domain.Entities;
 using Zello.Domain.Entities.Api.User;
 
 namespace Zello.Application.Dtos;
@@ -11,8 +12,6 @@ public class UserReadDto {
     public string Email { get; set; } = string.Empty;
     public DateTime CreatedDate { get; set; }
     public AccessLevel AccessLevel { get; set; }
-
-
 
     public static UserReadDto FromEntity(User user) {
         return new UserReadDto {
@@ -46,6 +45,10 @@ public class UserCreateDto {
     [JsonProperty("password")]
     public required string Password { get; set; }
 
+    [Required]
+    [JsonProperty("accessLevel")]
+    public required AccessLevel AccessLevel { get; set; }
+
     public User ToEntity() {
         return new User {
             Id = Guid.NewGuid(),
@@ -59,7 +62,7 @@ public class UserCreateDto {
     }
 }
 
-public class UserUpdateDTO {
+public class UserUpdateDto {
     [JsonProperty("userName")]
     public string? Name { get; set; }
 

@@ -5,14 +5,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Newtonsoft.Json;
-using Zello.Application.Interfaces;
-using Zello.Application.Services;
+using Zello.Application.ServiceInterfaces;
+using Zello.Application.ServiceImplementations;
+using Zello.Application.ServiceInterfaces.ExceptionInterfaces;
 using Zello.Domain.Entities.Api.User;
 using Zello.Infrastructure.Data;
-using Zello.Infrastructure.Interfaces;
 using Zello.Infrastructure.Repositories;
 using Zello.Infrastructure.Services;
 using Zello.Infrastructure.TestingDataStorage;
+using Zello.Domain.RepositoryInterfaces;
+using Zello.Domain.Abstractions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,12 +40,28 @@ builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IUserClaimsService, UserClaimsService>();
 builder.Services.AddScoped<IUserIdentityService, UserIdentityService>();
+builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();
+
+// Entity related services
+builder.Services.AddScoped<IWorkspaceService, WorkspaceService>();
+builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<ITaskListService, TaskListService>();
+builder.Services.AddScoped<IWorkTaskService, WorkTaskService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ICommentService, CommentService>();
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
 // Repositories
-builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
-builder.Services.AddScoped<ITaskRepository, TaskRepository>();
+builder.Services.AddScoped<IWorkspaceMemberRepository, WorkspaceMemberRepository>();
+builder.Services.AddScoped<ITaskListRepository, TaskListRepository>();
+builder.Services.AddScoped<IWorkTaskRepository, WorkTaskRepository>();
+builder.Services.AddScoped<ITaskAssigneeRepository, TaskAssigneeRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ICommentRepository, CommentRepository>();
+builder.Services.AddScoped<IWorkspaceService, WorkspaceService>();
+builder.Services.AddScoped<IWorkspaceValidationService, WorkspaceValidationService>();
 
 // Swagger Service
 builder.Services.AddScoped<ISwaggerService, SwaggerService>();

@@ -1,10 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Newtonsoft.Json;
 
 namespace Zello.Application.Features.Tasks.Models;
 
-
-public sealed record AddCommentRequest(
+public class AddCommentRequest {
     [Required]
-    [MaxLength(500)]
-    string Content = ""
-);
+    [StringLength(500)]
+    [JsonProperty("content")]
+    public required string Content { get; set; }
+}

@@ -1,54 +1,41 @@
 ﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Zello.Domain.Entities.Dto;
-using Zello.Application.Features.Users.Models;
-using Zello.Domain.Entities.Api.User;
-using Zello.Application.Interfaces;
-using Zello.Application.Features.Authentication.Models;
-using Zello.Domain.Entities;
-using Zello.Infrastructure.Data;
 using Moq;
 using Zello.Api.Controllers;
+using Zello.Application.Dtos;
+using Zello.Application.Features.Authentication.Models;
+using Zello.Application.ServiceInterfaces;
+using Zello.Domain.Entities;
+using Zello.Domain.Entities.Api.User;
 
 namespace Zello.Api.UnitTests;
 
-public class UserControllerTests : IDisposable {
+public class UserControllerTests {
     private readonly UserController _controller;
-    private readonly ApplicationDbContext _context;
-    private readonly Mock<IAuthenticationService> _mockAuthService;
-    private readonly Mock<IUserClaimsService> _mockUserClaimsService;
-    private readonly Mock<IUserIdentityService> _mockUserIdentityService;
-    private readonly Mock<IPasswordHasher> _mockPasswordHasher;
+    private readonly Mock<IUserService> _userService;
+    private readonly Mock<IAuthenticationService> _authService;
+    private readonly Mock<IPasswordHasher> _passwordHasher;
 
     public UserControllerTests() {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-        _context = new ApplicationDbContext(options);
-
-        _mockAuthService = new Mock<IAuthenticationService>();
-        _mockUserClaimsService = new Mock<IUserClaimsService>();
-        _mockUserIdentityService = new Mock<IUserIdentityService>();
-        _mockPasswordHasher = new Mock<IPasswordHasher>();
+        _userService = new Mock<IUserService>();
+        _authService = new Mock<IAuthenticationService>();
+        _passwordHasher = new Mock<IPasswordHasher>();
 
         _controller = new UserController(
-            _context,
-            _mockAuthService.Object,
-            _mockUserClaimsService.Object,
-            _mockUserIdentityService.Object,
-            _mockPasswordHasher.Object
+            _userService.Object,
+            _authService.Object,
+            _passwordHasher.Object
         );
-    }
-
-    public void Dispose() {
-        _context.Database.EnsureDeleted();
-        _context.Dispose();
     }
 
     [Fact]
     public async Task GetUserById_NonexistentId_ReturnsNotFound() {
         var userId = Guid.NewGuid();
+        _userService.Setup(x => x.GetUserByIdAsync(userId))
+            .ThrowsAsync(new KeyNotFoundException());
+
+        SetupUserContext(userId);
         var result = await _controller.GetUserById(userId);
 
         var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
@@ -56,57 +43,67 @@ public class UserControllerTests : IDisposable {
     }
 
     [Fact]
-    public async Task GetAllUsers_ReturnsOkResult() {
-        // Arrange
-        var user = new User {
-            Id = Guid.NewGuid(),
-            Username = "testuser",
-            Email = "test@test.com",
-            Name = "Test User",
-            AccessLevel = AccessLevel.Member,
-            PasswordHash = "hash",
-            CreatedDate = DateTime.UtcNow,
-            WorkspaceMembers = new List<WorkspaceMember>(),
-            AssignedTasks = new List<TaskAssignee>(),
-            Comments = new List<Comment>()
-        };
-        await _context.Users.AddAsync(user);
-        await _context.SaveChangesAsync();
+    public async Task GetUserById_DifferentUserNotAdmin_ReturnsForbidden() {
+        var userId = Guid.NewGuid();
+        var differentUserId = Guid.NewGuid();
 
-        // Act
+        SetupUserContext(differentUserId);
+        var result = await _controller.GetUserById(userId);
+
+        Assert.IsType<ForbidResult>(result);
+    }
+
+    [Fact]
+    public async Task GetAllUsers_NonAdmin_ReturnsForbidden() {
+        SetupUserContext(Guid.NewGuid());
         var result = await _controller.GetAllUsers();
 
-        // Assert
+        Assert.IsType<ForbidResult>(result);
+    }
+
+    [Fact]
+    public async Task GetAllUsers_AsAdmin_ReturnsOkResult() {
+        var users = new List<UserReadDto> {
+            new() {
+                Id = Guid.NewGuid(),
+                Username = "testuser",
+                Email = "test@test.com",
+                Name = "Test User",
+                AccessLevel = AccessLevel.Member,
+                CreatedDate = DateTime.UtcNow
+            }
+        };
+        _userService.Setup(x => x.GetAllUsersAsync())
+            .ReturnsAsync(users);
+
+        SetupUserContext(Guid.NewGuid(), isAdmin: true);
+        var result = await _controller.GetAllUsers();
+
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var users = Assert.IsType<List<User>>(okResult.Value);
-        var returnedUser = Assert.Single(users);
-        Assert.Equal(user.Username, returnedUser.Username);
-        Assert.Equal(user.Email, returnedUser.Email);
-        Assert.Equal(user.AccessLevel, returnedUser.AccessLevel);
+        var returnedUsers = Assert.IsType<List<UserReadDto>>(okResult.Value);
+        var returnedUser = Assert.Single(returnedUsers);
+        Assert.Equal(users[0].Username, returnedUser.Username);
     }
 
     [Fact]
     public async Task RegisterUser_ValidInput_ReturnsCreatedResult() {
-        var registerDto = new RegisterDto {
+        var registerDto = new UserCreateDto {
             Username = "newuser",
             Email = "new@test.com",
             Name = "Test User",
             AccessLevel = AccessLevel.Member,
             Password = "password"
         };
+        var createdUser = UserReadDto.FromEntity(registerDto.ToEntity());
 
-        _mockPasswordHasher.Setup(x => x.HashPassword(It.IsAny<string>()))
-            .Returns("hashedPassword");
+        _userService.Setup(x => x.CreateUserAsync(registerDto, _passwordHasher.Object))
+            .ReturnsAsync(createdUser);
 
         var result = await _controller.RegisterUser(registerDto);
 
         var createdResult = Assert.IsType<CreatedAtActionResult>(result);
-        var userDto = Assert.IsType<UserDto>(createdResult.Value);
+        var userDto = Assert.IsType<UserReadDto>(createdResult.Value);
         Assert.Equal(registerDto.Username, userDto.Username);
-        Assert.Equal(registerDto.Email, userDto.Email);
-        Assert.Equal(registerDto.Name, userDto.Name);
-        Assert.True(userDto.IsActive);
-        Assert.Equal(AccessLevel.Guest, userDto.AccessLevel);
     }
 
     [Fact]
@@ -115,17 +112,16 @@ public class UserControllerTests : IDisposable {
             Username = "testuser",
             Password = "password"
         };
-
         var loginResponse = new LoginResponse {
             Token = "jwt_token",
             Expires = DateTime.Now.AddHours(1),
             TokenType = "Bearer",
             AccessLevel = "Member",
             NumericLevel = 1,
-            Description = "Standard user access"
+            Description = "Standard user access with basic features"
         };
 
-        _mockAuthService.Setup(x => x.AuthenticateUserAsync(It.IsAny<TokenRequest>()))
+        _authService.Setup(x => x.AuthenticateUserAsync(loginRequest))
             .ReturnsAsync(loginResponse);
 
         var result = await _controller.Login(loginRequest);
@@ -133,58 +129,82 @@ public class UserControllerTests : IDisposable {
         var okResult = Assert.IsType<OkObjectResult>(result);
         var response = Assert.IsType<LoginResponse>(okResult.Value);
         Assert.Equal(loginResponse.Token, response.Token);
-        Assert.Equal(loginResponse.AccessLevel, response.AccessLevel);
+        Assert.Equal(loginResponse.Description, response.Description);
     }
 
     [Fact]
     public async Task GetCurrentUser_AuthenticatedUser_ReturnsOkResult() {
         var userId = Guid.NewGuid();
-        var user = new User {
+        var user = new UserReadDto {
             Id = userId,
             Username = "testuser",
             Email = "test@test.com",
             Name = "Test User",
             AccessLevel = AccessLevel.Member,
-            PasswordHash = "hash",
             CreatedDate = DateTime.UtcNow
         };
-        await _context.Users.AddAsync(user);
-        await _context.SaveChangesAsync();
 
-        _mockUserIdentityService.Setup(x => x.GetUserId(It.IsAny<ClaimsPrincipal>()))
-            .Returns(userId);
-        _mockUserClaimsService.Setup(x => x.GetAccessLevel(It.IsAny<ClaimsPrincipal>()))
-            .Returns(AccessLevel.Member);
+        _userService.Setup(x => x.GetUserByIdAsync(userId))
+            .ReturnsAsync(user);
 
+        SetupUserContext(userId);
         var result = await _controller.GetCurrentUser();
 
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var userDto = Assert.IsType<UserDto>(okResult.Value);
+        var userDto = Assert.IsType<UserReadDto>(okResult.Value);
         Assert.Equal(userId, userDto.Id);
-        Assert.Equal(user.Username, userDto.Username);
-        Assert.Equal(AccessLevel.Member, userDto.AccessLevel);
-        Assert.True(userDto.IsActive);
     }
 
-    [Theory]
-    [InlineData("", "Valid Name", "valid@email.com")]
-    [InlineData("validuser", "", "valid@email.com")]
-    [InlineData("validuser", "Valid Name", "")]
-    public async Task UpdateUser_InvalidFields_ReturnsBadRequest(string username, string name,
-        string email) {
+    [Fact]
+    public async Task UpdateUser_ValidInput_ReturnsOkResult() {
         var userId = Guid.NewGuid();
-        var updateDto = new RegisterDto {
-            Username = username,
-            Name = name,
-            Email = email,
-            AccessLevel = AccessLevel.Member,
-            Password = "password"
+        var updateDto = new UserUpdateDto {
+            Username = "updateduser",
+            Name = "Updated Name",
+            Email = "updated@test.com",
+            AccessLevel = AccessLevel.Member
+        };
+        var updatedUser = new UserReadDto {
+            Id = userId,
+            Username = updateDto.Username!,
+            Name = updateDto.Name!,
+            Email = updateDto.Email!,
+            AccessLevel = updateDto.AccessLevel,
+            CreatedDate = DateTime.UtcNow
         };
 
-        _controller.ModelState.AddModelError("Input", "Required fields missing");
+        _userService.Setup(x => x.UpdateUserAsync(userId, updateDto))
+            .ReturnsAsync(updatedUser);
 
+        SetupUserContext(userId);
         var result = await _controller.UpdateUser(userId, updateDto);
 
-        Assert.IsType<BadRequestObjectResult>(result);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var userDto = Assert.IsType<UserReadDto>(okResult.Value);
+        Assert.Equal(updateDto.Username, userDto.Username);
+    }
+
+    [Fact]
+    public async Task DeleteUser_ExistingUser_ReturnsNoContent() {
+        var userId = Guid.NewGuid();
+        SetupUserContext(userId);
+
+        var result = await _controller.DeleteUser(userId);
+
+        Assert.IsType<NoContentResult>(result);
+        _userService.Verify(x => x.DeleteUserAsync(userId), Times.Once);
+    }
+
+    private void SetupUserContext(Guid userId, bool isAdmin = false) {
+        var claims = new List<Claim> {
+            new("UserId", userId.ToString()),
+            new("AccessLevel",
+                isAdmin ? AccessLevel.Admin.ToString() : AccessLevel.Member.ToString())
+        };
+        _controller.ControllerContext = new ControllerContext {
+            HttpContext = new DefaultHttpContext {
+                User = new ClaimsPrincipal(new ClaimsIdentity(claims))
+            }
+        };
     }
 }

@@ -1,37 +1,35 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Moq;
 using Zello.Api.Controllers;
 using Zello.Application.Dtos;
 using Zello.Application.Features.Tasks.Models;
+using Zello.Application.ServiceInterfaces;
 using Zello.Domain.Entities;
 using Zello.Domain.Entities.Api.User;
 using Zello.Domain.Enums;
-using Zello.Infrastructure.Data;
 
 namespace Zello.Api.UnitTests;
 
-public class TaskControllerTests : IDisposable {
+public class TaskControllerTests {
     private readonly TaskController _controller;
-    private readonly ApplicationDbContext _context;
+    private readonly Mock<IWorkTaskService> _workTaskServiceMock;
     private readonly Guid _userId;
-    private readonly Guid _workspaceId;
-    private readonly Guid _projectId;
-    private readonly Guid _listId;
-    private readonly Guid _taskId;
+    private readonly AccessLevel _userAccess;
 
     public TaskControllerTests() {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-        _context = new ApplicationDbContext(options);
-        _controller = new TaskController(_context);
-
-        // Setup user and claims
+        _workTaskServiceMock = new Mock<IWorkTaskService>();
+        _controller = new TaskController(_workTaskServiceMock.Object);
         _userId = Guid.NewGuid();
+        _userAccess = AccessLevel.Admin;
+        SetupControllerContext();
+    }
+
+    private void SetupControllerContext() {
         var claims = new List<Claim> {
-            new Claim("UserId", _userId.ToString())
+            new("UserId", _userId.ToString()),
+            new("AccessLevel", _userAccess.ToString())
         };
         var identity = new ClaimsIdentity(claims);
         var principal = new ClaimsPrincipal(identity);
@@ -39,219 +37,135 @@ public class TaskControllerTests : IDisposable {
         _controller.ControllerContext = new ControllerContext {
             HttpContext = new DefaultHttpContext { User = principal }
         };
-
-        // Setup test data
-        _workspaceId = Guid.NewGuid();
-        _projectId = Guid.NewGuid();
-        _listId = Guid.NewGuid();
-        _taskId = Guid.NewGuid();
-        SetupTestData();
-    }
-
-    private void SetupTestData() {
-        _context.Users.Add(new User {
-            Id = _userId,
-            Username = "testuser",
-            Name = "Test User",
-            Email = "test@example.com",
-            PasswordHash = "hashedpassword123",
-            CreatedDate = DateTime.UtcNow
-        });
-
-        var workspace = new Workspace {
-            Id = _workspaceId,
-            Name = "Test Workspace",
-            OwnerId = _userId,
-            CreatedDate = DateTime.UtcNow
-        };
-        _context.Workspaces.Add(workspace);
-
-        var workspaceMember = new WorkspaceMember {
-            Id = Guid.NewGuid(),
-            WorkspaceId = _workspaceId,
-            UserId = _userId,
-            AccessLevel = AccessLevel.Owner,
-            CreatedDate = DateTime.UtcNow
-        };
-        _context.WorkspaceMembers.Add(workspaceMember);
-
-        var project = new Project {
-            Id = _projectId,
-            WorkspaceId = _workspaceId,
-            Name = "Test Project",
-            Status = ProjectStatus.InProgress,
-            CreatedDate = DateTime.UtcNow
-        };
-        _context.Projects.Add(project);
-
-        var list = new TaskList {
-            Id = _listId,
-            ProjectId = _projectId,
-            Name = "Test List",
-            Position = 0,
-            CreatedDate = DateTime.UtcNow
-        };
-        _context.Lists.Add(list);
-
-        var task = new WorkTask {
-            Id = _taskId,
-            ProjectId = _projectId,
-            ListId = _listId,
-            Name = "Test Task",
-            Description = "Test Description",
-            Status = CurrentTaskStatus.NotStarted,
-            Priority = Priority.Medium,
-            CreatedDate = DateTime.UtcNow
-        };
-        _context.Tasks.Add(task);
-
-        _context.SaveChanges();
     }
 
     [Fact]
-    public async Task GetTaskById_ExistingTask_ReturnsTask() {
-        // Act
-        var result = await _controller.GetTaskById(_taskId);
+    public async Task GetTaskById_ExistingTask_ReturnsOk() {
+        var taskId = Guid.NewGuid();
+        var task = new TaskReadDto { Id = taskId, Name = "Test Task" };
 
-        // Assert
+        _workTaskServiceMock.Setup(x => x.GetTaskByIdAsync(taskId, _userId, _userAccess))
+            .ReturnsAsync(task);
+
+        var result = await _controller.GetTaskById(taskId);
+
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var taskDto = Assert.IsType<TaskReadDto>(okResult.Value);
-        Assert.Equal(_taskId, taskDto.Id);
+        Assert.Equal(task, okResult.Value);
     }
 
     [Fact]
-    public async Task GetTaskById_NonExistentTask_ReturnsNotFound() {
-        // Act
-        var result = await _controller.GetTaskById(Guid.NewGuid());
+    public async Task GetTaskById_UnauthorizedAccess_ReturnsForbid() {
+        var taskId = Guid.NewGuid();
+        _workTaskServiceMock.Setup(x => x.GetTaskByIdAsync(taskId, _userId, _userAccess))
+            .ThrowsAsync(new UnauthorizedAccessException());
 
-        // Assert
-        Assert.IsType<NotFoundObjectResult>(result);
+        var result = await _controller.GetTaskById(taskId);
+
+        Assert.IsType<ForbidResult>(result);
     }
 
     [Fact]
-    public async Task UpdateTask_ValidUpdate_ReturnsUpdatedTask() {
-        // Arrange
+    public async Task UpdateTask_ValidUpdate_ReturnsOk() {
+        var taskId = Guid.NewGuid();
         var updateDto = new TaskUpdateDto {
             Name = "Updated Task",
             Description = "Updated Description",
             Status = CurrentTaskStatus.InProgress,
             Priority = Priority.High,
-            Deadline = DateTime.UtcNow.AddDays(1) // Use Deadline instead
+            Deadline = DateTime.UtcNow.AddDays(1)
         };
+        var updatedTask = new TaskReadDto { Id = taskId, Name = updateDto.Name };
 
-        // Act
-        var result = await _controller.UpdateTask(_taskId, updateDto);
+        _workTaskServiceMock.Setup(x => x.UpdateTaskAsync(taskId, updateDto, _userId, _userAccess))
+            .ReturnsAsync(updatedTask);
 
-        // Assert
+        var result = await _controller.UpdateTask(taskId, updateDto);
+
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var taskDto = Assert.IsType<TaskReadDto>(okResult.Value);
-        Assert.Equal(updateDto.Name, taskDto.Name);
-        Assert.Equal(updateDto.Status, taskDto.Status);
-        Assert.Equal(updateDto.Priority, taskDto.Priority);
+        Assert.Equal(updatedTask, okResult.Value);
     }
 
     [Fact]
-    public async Task MoveTask_ValidMove_ReturnsUpdatedTask() {
-        // Arrange
-        var newListId = Guid.NewGuid();
-        var newList = new TaskList {
-            Id = newListId,
-            ProjectId = _projectId,
-            Name = "New List",
-            Position = 1,
-            CreatedDate = DateTime.UtcNow
-        };
-        await _context.Lists.AddAsync(newList);
-        await _context.SaveChangesAsync();
+    public async Task MoveTask_ValidMove_ReturnsOk() {
+        var taskId = Guid.NewGuid();
+        var targetListId = Guid.NewGuid();
+        var request = new MoveTaskRequest(targetListId);
+        var movedTask = new TaskReadDto { Id = taskId, ListId = targetListId };
 
-        var request = new MoveTaskRequest(newListId);
+        _workTaskServiceMock.Setup(x => x.MoveTaskAsync(taskId, targetListId, _userId, _userAccess))
+            .ReturnsAsync(movedTask);
 
-        try {
-            // Act
-            var result = await _controller.MoveTask(_taskId, request);
+        var result = await _controller.MoveTask(taskId, request);
 
-            // Assert
-            var okResult = Assert.IsType<OkObjectResult>(result);
-            var taskDto = Assert.IsType<TaskReadDto>(okResult.Value);
-            Assert.Equal(newListId, taskDto.ListId);
-        } catch (InvalidOperationException ex) when (ex.Message.Contains(
-                                                         "Transactions are not supported")) {
-            // Ignore transaction warnings for in-memory database
-        }
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(movedTask, okResult.Value);
     }
 
     [Fact]
     public async Task AssignUserToTask_ValidAssignment_ReturnsCreated() {
-        // Arrange
-        var request = new AssignUserRequest { UserId = _userId };
+        var taskId = Guid.NewGuid();
+        var assigneeId = Guid.NewGuid();
+        var request = new AssignUserRequest { UserId = assigneeId };
+        var assignee = new TaskAssigneeReadDto { Id = Guid.NewGuid(), UserId = assigneeId };
 
-        // Act
-        var result = await _controller.AssignUserToTask(_taskId, request);
+        _workTaskServiceMock
+            .Setup(x => x.AssignUserToTaskAsync(taskId, assigneeId, _userId, _userAccess))
+            .ReturnsAsync(assignee);
 
-        // Assert
+        var result = await _controller.AssignUserToTask(taskId, request);
+
         var createdResult = Assert.IsType<CreatedAtActionResult>(result);
-        var assigneeDto = Assert.IsType<TaskAssigneeReadDto>(createdResult.Value);
-        Assert.Equal(_userId, assigneeDto.UserId);
-    }
-
-    [Fact]
-    public async Task AddTaskComment_ValidComment_ReturnsCreated() {
-        // Arrange
-        var request = new AddCommentRequest("Test comment content");
-
-        // Act
-        var result = await _controller.AddTaskComment(_taskId, request);
-
-        // Assert
-        var createdResult = Assert.IsType<CreatedAtActionResult>(result);
-        var commentDto = Assert.IsType<CommentReadDto>(createdResult.Value);
-        Assert.Equal(request.Content, commentDto.Content);
-    }
-
-    [Fact]
-    public async Task GetTaskComments_ExistingTask_ReturnsComments() {
-        // Arrange
-        var comment = new Comment {
-            Id = Guid.NewGuid(),
-            TaskId = _taskId,
-            UserId = _userId,
-            Content = "Test Comment",
-            CreatedDate = DateTime.UtcNow
-        };
-        await _context.Comments.AddAsync(comment);
-        await _context.SaveChangesAsync();
-
-        // Act
-        var result = _controller.GetTaskComments(_taskId);
-
-        // Assert
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var comments = Assert.IsType<List<CommentReadDto>>(okResult.Value);
-        Assert.Single(comments);
-        Assert.Equal(comment.Content, comments[0].Content);
+        Assert.Equal(assignee, createdResult.Value);
     }
 
     [Fact]
     public async Task RemoveTaskAssignee_ExistingAssignment_ReturnsNoContent() {
-        // Arrange
-        var assignee = new TaskAssignee {
-            Id = Guid.NewGuid(),
-            TaskId = _taskId,
-            UserId = _userId,
-            AssignedDate = DateTime.UtcNow
-        };
-        await _context.TaskAssignees.AddAsync(assignee);
-        await _context.SaveChangesAsync();
+        var taskId = Guid.NewGuid();
+        var assigneeId = Guid.NewGuid();
 
-        // Act
-        var result = await _controller.RemoveTaskAssignee(_taskId, _userId);
+        _workTaskServiceMock.Setup(x =>
+                x.RemoveTaskAssigneeAsync(taskId, assigneeId, _userId, _userAccess))
+            .Returns(Task.CompletedTask);
 
-        // Assert
+        var result = await _controller.RemoveTaskAssignee(taskId, assigneeId);
+
         Assert.IsType<NoContentResult>(result);
     }
 
-    public void Dispose() {
-        _context.Database.EnsureDeleted();
-        _context.Dispose();
+    [Fact]
+    public async Task AddTaskComment_ValidComment_ReturnsCreated() {
+        var taskId = Guid.NewGuid();
+        var request = new AddCommentRequest { Content = "Test comment" };
+        var comment = new CommentReadDto {
+            Id = Guid.NewGuid(),
+            Content = request.Content,
+            TaskId = taskId,
+            UserId = _userId
+        };
+
+        _workTaskServiceMock.Setup(x =>
+                x.AddTaskCommentAsync(taskId, request.Content, _userId, _userAccess))
+            .ReturnsAsync(comment);
+
+        var result = await _controller.AddTaskComment(taskId, request);
+
+        var createdResult = Assert.IsType<CreatedAtActionResult>(result);
+        Assert.Equal(comment, createdResult.Value);
+    }
+
+    [Fact]
+    public async Task GetTaskComments_ValidTask_ReturnsOk() {
+        var taskId = Guid.NewGuid();
+        var comments = new List<CommentReadDto> {
+            new() { Id = Guid.NewGuid(), Content = "Test Comment" }
+        };
+
+        _workTaskServiceMock.Setup(x => x.GetTaskCommentsAsync(taskId, _userId, _userAccess))
+            .ReturnsAsync(comments);
+
+        var result = await _controller.GetTaskComments(taskId);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(comments, okResult.Value);
     }
 }

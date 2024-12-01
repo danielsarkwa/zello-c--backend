@@ -10,7 +10,7 @@ public class Workspace {
     public Guid Id { get; set; }
 
     [Column("name")]
-    public required string Name { get; set; }
+    public string Name { get; set; } = string.Empty;
 
     [Column("owner_id")]
     public Guid OwnerId { get; set; }

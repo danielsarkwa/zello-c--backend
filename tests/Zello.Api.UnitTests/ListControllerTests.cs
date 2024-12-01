@@ -1,210 +1,181 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
+using Moq;
 using Zello.Api.Controllers;
 using Zello.Application.Dtos;
+using Zello.Application.ServiceInterfaces;
 using Zello.Domain.Entities;
+using Zello.Domain.Entities.Api.User;
 using Zello.Domain.Enums;
-using Zello.Infrastructure.Data;
 
 namespace Zello.Api.UnitTests;
 
-public class ListControllerTests : IDisposable {
+public class ListControllerTests {
     private readonly ListController _controller;
-    private readonly ApplicationDbContext _context;
-    private Guid _testListId;
-    private Guid _testProjectId;
-    private Guid _testWorkspaceId;
+    private readonly Mock<ITaskListService> _taskListServiceMock;
+    private readonly Mock<IUserService> _userServiceMock;
+    private readonly Mock<IProjectService> _projectServiceMock;
+    private readonly Mock<IAuthorizationService> _authServiceMock;
+    private readonly Guid _userId;
+    private readonly AccessLevel _userAccess;
 
     public ListControllerTests() {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-        _context = new ApplicationDbContext(options);
-        _controller = new ListController(_context);
-        SeedTestData().GetAwaiter().GetResult();
+        _taskListServiceMock = new Mock<ITaskListService>();
+        _userServiceMock = new Mock<IUserService>();
+        _projectServiceMock = new Mock<IProjectService>();
+        _authServiceMock = new Mock<IAuthorizationService>();
+
+        _controller = new ListController(
+            _taskListServiceMock.Object,
+            _userServiceMock.Object,
+            _projectServiceMock.Object,
+            _authServiceMock.Object
+        );
+
+        _userId = Guid.NewGuid();
+        _userAccess = AccessLevel.Admin;
+
+        SetupControllerContext();
     }
 
-    private async Task SeedTestData() {
-        var workspace = new Workspace {
-            Id = Guid.NewGuid(),
-            Name = "Test Workspace"
+    private void SetupControllerContext() {
+        var claims = new List<Claim> {
+            new("UserId", _userId.ToString()),
+            new("AccessLevel", _userAccess.ToString())
         };
-        _testWorkspaceId = workspace.Id;
+        var identity = new ClaimsIdentity(claims);
+        var principal = new ClaimsPrincipal(identity);
 
-        var project = new Project {
-            Id = Guid.NewGuid(),
-            Name = "Test Project",
-            Workspace = workspace,
-            WorkspaceId = workspace.Id
+        _controller.ControllerContext = new ControllerContext {
+            HttpContext = new DefaultHttpContext { User = principal }
         };
-        _testProjectId = project.Id;
-
-        var list = new TaskList {
-            Id = Guid.NewGuid(),
-            Name = "Test List",
-            ProjectId = project.Id,
-            Project = project,
-            Position = 0
-        };
-        _testListId = list.Id;
-
-        await _context.Workspaces.AddAsync(workspace);
-        await _context.Projects.AddAsync(project);
-        await _context.Lists.AddAsync(list);
-        await _context.SaveChangesAsync();
-    }
-
-    public void Dispose() {
-        _context.Database.EnsureDeleted();
-        _context.Dispose();
     }
 
     [Fact]
-    public async Task GetAllLists_ReturnsOkResult() {
-        var result = await _controller.GetAllLists();
+    public async Task GetListById_ExistingList_ReturnsOkResult() {
+        var listId = Guid.NewGuid();
+        var projectId = Guid.NewGuid();
+        var list = new ListReadDto { Id = listId, ProjectId = projectId };
+
+        _taskListServiceMock.Setup(x => x.GetByIdAsync(listId)).ReturnsAsync(list);
+        _authServiceMock.Setup(x =>
+                x.AuthorizeProjectAccessAsync(_userId, projectId, AccessLevel.Member))
+            .ReturnsAsync(true);
+
+        var result = await _controller.GetListById(listId);
 
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var lists = Assert.IsType<List<ListReadDto>>(okResult.Value);
-        Assert.Single(lists);
-        Assert.Equal("Test List", lists[0].Name);
+        Assert.Equal(list, okResult.Value);
     }
 
     [Fact]
-    public async Task GetAllLists_WithProjectFilter_ReturnsFilteredLists() {
-        var result = await _controller.GetAllLists(_testProjectId);
+    public async Task GetListById_UnauthorizedAccess_ReturnsForbid() {
+        var listId = Guid.NewGuid();
+        var projectId = Guid.NewGuid();
+        var list = new ListReadDto { Id = listId, ProjectId = projectId };
 
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var lists = Assert.IsType<List<ListReadDto>>(okResult.Value);
-        Assert.Single(lists);
-        Assert.All(lists, l => Assert.Equal(_testProjectId, l.ProjectId));
-    }
+        _taskListServiceMock.Setup(x => x.GetByIdAsync(listId)).ReturnsAsync(list);
+        _authServiceMock.Setup(x =>
+                x.AuthorizeProjectAccessAsync(_userId, projectId, AccessLevel.Member))
+            .ReturnsAsync(false);
 
-    [Fact]
-    public async Task GetListById_WithValidId_ReturnsCorrectList() {
-        var result = await _controller.GetListById(_testListId);
+        var result = await _controller.GetListById(listId);
 
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var listDto = Assert.IsType<ListReadDto>(okResult.Value);
-        Assert.Equal(_testListId, listDto.Id);
-        Assert.Equal("Test List", listDto.Name);
-    }
-
-    [Fact]
-    public async Task GetListById_WithInvalidId_ReturnsNotFound() {
-        var result = await _controller.GetListById(Guid.NewGuid());
-        Assert.IsType<NotFoundObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task UpdateList_WithValidData_ReturnsUpdatedList() {
-        var updateDto = new ListUpdateDto {
-            Name = "Updated List",
-            Position = 1,
-            Id = _testListId // Changed from ProjectId since we don't need it in update
-        };
-
-        var result = await _controller.UpdateList(_testListId, updateDto);
-
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var listDto = Assert.IsType<ListReadDto>(okResult.Value);
-        Assert.Equal("Updated List", listDto.Name);
-        Assert.Equal(1, listDto.Position);
-    }
-
-    [Fact]
-    public async Task UpdateList_WithInvalidId_ReturnsNotFound() {
-        var updateDto = new ListUpdateDto {
-            Name = "Updated List",
-            Position = 1
-        };
-
-        var result = await _controller.UpdateList(Guid.NewGuid(), updateDto);
-        Assert.IsType<NotFoundObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task UpdateListPosition_WithValidData_UpdatesPositions() {
-        // Add another list to make the position update valid
-        var newList = new TaskList {
-            Id = Guid.NewGuid(),
-            Name = "Test List 2",
-            ProjectId = _testProjectId,
-            Position = 1
-        };
-        await _context.Lists.AddAsync(newList);
-        await _context.SaveChangesAsync();
-
-        var updateDto = new ListUpdateDto {
-            Position = 1
-        };
-
-        var result = await _controller.UpdateListPosition(_testListId, updateDto);
-
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var listDto = Assert.IsType<ListReadDto>(okResult.Value);
-        Assert.Equal(1, listDto.Position);
-    }
-
-    [Fact]
-    public async Task UpdateListPosition_WithInvalidPosition_ReturnsBadRequest() {
-        var updateDto = new ListUpdateDto {
-            Position = -1
-        };
-
-        var result = await _controller.UpdateListPosition(_testListId, updateDto);
-        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.IsType<ForbidResult>(result);
     }
 
     [Fact]
     public async Task CreateTask_ValidInput_ReturnsCreatedResult() {
-        var userId = Guid.NewGuid();
-        var workspaceMember = new WorkspaceMember {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            WorkspaceId = _testWorkspaceId
-        };
-
-        await _context.WorkspaceMembers.AddAsync(workspaceMember);
-        await _context.SaveChangesAsync();
-
+        var listId = Guid.NewGuid();
+        var projectId = Guid.NewGuid();
         var createDto = new TaskCreateDto {
-            Name = "New Task",
-            ProjectId = _testProjectId,
-            ListId = _testListId,
+            Name = "Test Task",
+            ProjectId = projectId,
+            ListId = listId,
             Status = CurrentTaskStatus.NotStarted,
-            Priority = Priority.Medium,
-            Deadline = DateTime.UtcNow.AddDays(1)
+            Priority = Priority.Medium
         };
+        var task = new TaskReadDto { Id = Guid.NewGuid(), Name = createDto.Name };
+        var tasks = new List<TaskReadDto> { new() { ProjectId = projectId } };
 
-        _controller.ControllerContext = new ControllerContext {
-            HttpContext = new DefaultHttpContext {
-                User = new ClaimsPrincipal(new ClaimsIdentity(new[] {
-                    new Claim("UserId", userId.ToString())
-                }))
+        _taskListServiceMock.Setup(x => x.CreateTaskAsync(listId, createDto, _userId))
+            .ReturnsAsync(task);
+        _taskListServiceMock.Setup(x => x.GetListTasksAsync(listId))
+            .ReturnsAsync(tasks);
+        _authServiceMock.Setup(x => x.AuthorizeProjectMembershipAsync(_userId, projectId))
+            .ReturnsAsync(true);
+
+        var result = await _controller.CreateTask(listId, createDto);
+
+        var createdResult = Assert.IsType<CreatedAtActionResult>(result);
+        Assert.Equal(task, createdResult.Value);
+    }
+
+    [Fact]
+    public async Task UpdateListPosition_UnauthorizedAccess_ThrowsUnauthorizedException() {
+        var listId = Guid.NewGuid();
+        var projectId = Guid.NewGuid();
+        var updateDto = new ListUpdateDto { Position = 1 };
+
+        _taskListServiceMock.Setup(x => x.GetByIdAsync(listId))
+            .ReturnsAsync(new ListReadDto { Id = listId, ProjectId = projectId });
+        _authServiceMock.Setup(x =>
+                x.AuthorizeProjectAccessAsync(_userId, projectId, AccessLevel.Member))
+            .ReturnsAsync(false);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _controller.UpdateListPosition(listId, updateDto));
+    }
+
+    [Fact]
+    public async Task GetListTasks_ExistingList_ReturnsOkResult() {
+        var listId = Guid.NewGuid();
+        var projectId = Guid.NewGuid();
+        var tasks = new List<TaskReadDto> {
+            new() {
+                Id = Guid.NewGuid(),
+                ProjectId = projectId,
+                Name = "Test Task"
             }
         };
 
-        var result = await _controller.CreateTask(_testListId, createDto);
-        var createdResult = Assert.IsType<CreatedAtActionResult>(result);
-        var taskDto = Assert.IsType<TaskReadDto>(createdResult.Value);
-    }
+        _taskListServiceMock.Setup(x => x.GetListTasksAsync(listId))
+            .ReturnsAsync(tasks);
+        _authServiceMock.Setup(x => x.AuthorizeProjectMembershipAsync(_userId, projectId))
+            .ReturnsAsync(true);
 
-
-    [Fact]
-    public async Task GetListTasks_WithValidId_ReturnsTasks() {
-        var result = await _controller.GetListTasks(_testListId);
+        var result = await _controller.GetListTasks(listId);
 
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var tasks = Assert.IsType<List<TaskReadDto>>(okResult.Value);
-        Assert.All(tasks, t => Assert.Equal(_testListId, t.ListId));
+        var returnedTasks = Assert.IsAssignableFrom<IEnumerable<TaskReadDto>>(okResult.Value);
+        Assert.Equal(tasks, returnedTasks);
     }
 
     [Fact]
-    public async Task GetListTasks_WithInvalidId_ReturnsNotFound() {
-        var result = await _controller.GetListTasks(Guid.NewGuid());
+    public async Task GetListTasks_NonexistentList_ReturnsNotFound() {
+        var listId = Guid.NewGuid();
+        _taskListServiceMock.Setup(x => x.GetListTasksAsync(listId))
+            .ReturnsAsync((IEnumerable<TaskReadDto>?)null);
+
+        var result = await _controller.GetListTasks(listId);
+
         Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetListTasks_UnauthorizedAccess_ReturnsForbid() {
+        var listId = Guid.NewGuid();
+        var projectId = Guid.NewGuid();
+        var tasks = new List<TaskReadDto> { new() { ProjectId = projectId } };
+
+        _taskListServiceMock.Setup(x => x.GetListTasksAsync(listId))
+            .ReturnsAsync(tasks);
+        _authServiceMock.Setup(x => x.AuthorizeProjectMembershipAsync(_userId, projectId))
+            .ReturnsAsync(false);
+
+        var result = await _controller.GetListTasks(listId);
+
+        Assert.IsType<ForbidResult>(result);
     }
 }

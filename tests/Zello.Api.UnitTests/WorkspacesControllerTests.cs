@@ -1,33 +1,29 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Zello.Api.Controllers;
+using Moq;
 using Zello.Application.Dtos;
-using Zello.Domain.Entities;
+using Zello.Application.Exceptions;
+using Zello.Application.ServiceInterfaces;
 using Zello.Domain.Entities.Api.User;
-using Zello.Infrastructure.Data;
 
 namespace Zello.Api.UnitTests;
 
-public class WorkspacesControllerTests : IDisposable {
+public class WorkspacesControllerTests {
     private readonly WorkspacesController _controller;
-    private readonly ApplicationDbContext _context;
+    private readonly Mock<IWorkspaceService> _workspaceServiceMock;
     private readonly Guid _userId;
+    private readonly AccessLevel _userAccess;
 
     public WorkspacesControllerTests() {
-        // Setup mock context
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-        _context = new ApplicationDbContext(options);
-
-        _controller = new WorkspacesController(_context);
-
-        // Setup the controller context with user claims
+        _workspaceServiceMock = new Mock<IWorkspaceService>();
+        _controller = new WorkspacesController(_workspaceServiceMock.Object);
         _userId = Guid.NewGuid();
+        _userAccess = AccessLevel.Admin;
+
         var claims = new List<Claim> {
-            new Claim("UserId", _userId.ToString())
+            new Claim("UserId", _userId.ToString()),
+            new Claim("AccessLevel", _userAccess.ToString())
         };
         var identity = new ClaimsIdentity(claims);
         var principal = new ClaimsPrincipal(identity);
@@ -35,136 +31,178 @@ public class WorkspacesControllerTests : IDisposable {
         _controller.ControllerContext = new ControllerContext {
             HttpContext = new DefaultHttpContext { User = principal }
         };
-
-        // Add test user to context with all required fields
-        _context.Users.Add(new User {
-            Id = _userId,
-            Username = "testuser",
-            Name = "Test User",
-            Email = "test@example.com",
-            PasswordHash = "hashedpassword123",
-            CreatedDate = DateTime.UtcNow
-        });
-        _context.SaveChanges();
     }
 
     [Fact]
     public async Task CreateWorkspace_ValidInput_ReturnsCreatedResult() {
         // Arrange
-        var createDto = new WorkspaceCreateDto {
-            Name = "Test Workspace"
+        var createDto = new WorkspaceCreateDto { Name = "Test Workspace" };
+        var expectedWorkspace = new WorkspaceReadDto {
+            Id = Guid.NewGuid(),
+            Name = createDto.Name,
+            OwnerId = _userId
         };
 
+        _workspaceServiceMock.Setup(x => x.CreateWorkspaceAsync(createDto, _userId))
+            .ReturnsAsync(expectedWorkspace);
+
         // Act
-        var actionResult = await _controller.CreateWorkspace(createDto);
+        var result = await _controller.CreateWorkspace(createDto);
 
         // Assert
-        var result = Assert.IsType<CreatedAtActionResult>(actionResult.Result);
-        var value = result.Value;
-
-        // Use reflection to get properties since it's an anonymous type
-        var type = value.GetType();
-        var nameProperty = type.GetProperty("Name");
-        var ownerIdProperty = type.GetProperty("OwnerId");
-        var idProperty = type.GetProperty("Id");
-
-        Assert.NotNull(nameProperty);
-        Assert.NotNull(ownerIdProperty);
-        Assert.NotNull(idProperty);
-
-        Assert.Equal(createDto.Name, nameProperty.GetValue(value));
-        Assert.Equal(_userId, ownerIdProperty.GetValue(value));
-        Assert.IsType<Guid>(idProperty.GetValue(value));
+        var createdResult = Assert.IsType<CreatedAtActionResult>(result.Result);
+        Assert.Equal(expectedWorkspace, createdResult.Value);
     }
 
     [Fact]
-    public async Task CreateWorkspace_NullInput_ReturnsBadRequest() {
-        // Act
-        var result = await _controller.CreateWorkspace(null);
+    public async Task GetAllWorkspaces_ReturnsOkWithWorkspaces() {
+        // Arrange
+        var workspaces = new List<WorkspaceReadDto> {
+            new() { Id = Guid.NewGuid(), Name = "Workspace 1" },
+            new() { Id = Guid.NewGuid(), Name = "Workspace 2" }
+        };
 
-        // Assert
-        Assert.IsType<BadRequestResult>(result.Result);
-    }
+        _workspaceServiceMock.Setup(x => x.GetAllWorkspacesAsync(_userId, _userAccess))
+            .ReturnsAsync(workspaces);
 
-    [Fact]
-    public async Task GetAllWorkspaces_ReturnsOkResult() {
         // Act
         var result = await _controller.GetAllWorkspaces();
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
-        Assert.IsType<List<WorkspaceReadDto>>(okResult.Value);
+        Assert.Equal(workspaces, okResult.Value);
     }
 
     [Fact]
-    public async Task GetWorkspace_ReturnsNotFoundForNonexistentId() {
-        // Act
-        var result = await _controller.GetWorkspace(Guid.NewGuid());
-
-        // Assert
-        Assert.IsType<NotFoundResult>(result.Result);
-    }
-
-    [Fact]
-    public async Task GetWorkspace_ExistingWorkspace_ReturnsOkWithWorkspace() {
+    public async Task GetWorkspace_ExistingId_ReturnsOkWithWorkspace() {
         // Arrange
-        var workspace = new Workspace {
-            Id = Guid.NewGuid(),
-            Name = "Test Workspace",
-            OwnerId = _userId,
-            CreatedDate = DateTime.UtcNow
-        };
-        await _context.Workspaces.AddAsync(workspace);
-        await _context.SaveChangesAsync();
+        var workspaceId = Guid.NewGuid();
+        var workspace = new WorkspaceReadDto { Id = workspaceId, Name = "Test" };
+
+        _workspaceServiceMock.Setup(x => x.GetWorkspaceByIdAsync(workspaceId, _userId, _userAccess))
+            .ReturnsAsync(workspace);
 
         // Act
-        var result = await _controller.GetWorkspace(workspace.Id);
+        var result = await _controller.GetWorkspace(workspaceId);
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
-        var returnValue = Assert.IsType<Workspace>(okResult.Value);
-        Assert.Equal(workspace.Id, returnValue.Id);
-        Assert.Equal(workspace.Name, returnValue.Name);
+        Assert.Equal(workspace, okResult.Value);
     }
 
     [Fact]
-    public async Task UpdateWorkspace_ReturnsNotFoundForNonexistentId() {
+    public async Task GetWorkspace_NonexistentId_ReturnsNotFound() {
         // Arrange
-        var updateDto = new WorkspaceUpdateDto { Name = "Updated Name" };
+        var workspaceId = Guid.NewGuid();
+        _workspaceServiceMock.Setup(x => x.GetWorkspaceByIdAsync(workspaceId, _userId, _userAccess))
+            .ThrowsAsync(new WorkspaceNotFoundException());
 
         // Act
-        var result = await _controller.UpdateWorkspace(Guid.NewGuid(), updateDto);
-
-        // Assert
-        Assert.IsType<NotFoundResult>(result.Result);
-    }
-
-    [Fact]
-    public async Task DeleteWorkspace_ReturnsNotFoundForNonexistentId() {
-        // Act
-        var result = await _controller.DeleteWorkspace(Guid.NewGuid());
-
-        // Assert
-        Assert.IsType<NotFoundResult>(result);
-    }
-
-    [Fact]
-    public async Task AddWorkspaceMember_ReturnsNotFoundForNonexistentWorkspace() {
-        // Arrange
-        var createMemberDto = new WorkspaceMemberCreateDto {
-            UserId = Guid.NewGuid(),
-            AccessLevel = AccessLevel.Member
-        };
-
-        // Act
-        var result = await _controller.AddWorkspaceMember(Guid.NewGuid(), createMemberDto);
+        var result = await _controller.GetWorkspace(workspaceId);
 
         // Assert
         Assert.IsType<NotFoundObjectResult>(result.Result);
     }
 
-    public void Dispose() {
-        _context.Database.EnsureDeleted();
-        _context.Dispose();
+    [Fact]
+    public async Task UpdateWorkspace_ValidUpdate_ReturnsOkResult() {
+        // Arrange
+        var workspaceId = Guid.NewGuid();
+        var updateDto = new WorkspaceUpdateDto { Name = "Updated Name" };
+        var updatedWorkspace = new WorkspaceReadDto { Id = workspaceId, Name = updateDto.Name };
+
+        _workspaceServiceMock.Setup(x =>
+                x.UpdateWorkspaceAsync(workspaceId, updateDto, _userId, _userAccess))
+            .ReturnsAsync(updatedWorkspace);
+
+        // Act
+        var result = await _controller.UpdateWorkspace(workspaceId, updateDto);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal(updatedWorkspace, okResult.Value);
+    }
+
+    [Fact]
+    public async Task DeleteWorkspace_ExistingWorkspace_ReturnsNoContent() {
+        // Arrange
+        var workspaceId = Guid.NewGuid();
+        _workspaceServiceMock.Setup(x => x.DeleteWorkspaceAsync(workspaceId, _userId, _userAccess))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _controller.DeleteWorkspace(workspaceId);
+
+        // Assert
+        Assert.IsType<NoContentResult>(result);
+    }
+
+    [Fact]
+    public async Task AddWorkspaceMember_ValidMember_ReturnsCreatedResult() {
+        // Arrange
+        var workspaceId = Guid.NewGuid();
+        var createDto = new WorkspaceMemberCreateDto {
+            UserId = Guid.NewGuid(),
+            AccessLevel = AccessLevel.Member
+        };
+        var createdMember = new WorkspaceMemberReadDto {
+            Id = Guid.NewGuid(),
+            WorkspaceId = workspaceId,
+            UserId = createDto.UserId
+        };
+
+        _workspaceServiceMock.Setup(x =>
+                x.AddWorkspaceMemberAsync(workspaceId, createDto, _userId, _userAccess))
+            .ReturnsAsync(createdMember);
+
+        // Act
+        var result = await _controller.AddWorkspaceMember(workspaceId, createDto);
+
+        // Assert
+        var createdResult = Assert.IsType<CreatedAtActionResult>(result.Result);
+        Assert.Equal(createdMember, createdResult.Value);
+    }
+
+    [Fact]
+    public async Task GetWorkspaceMembers_ExistingWorkspace_ReturnsOkWithMembers() {
+        // Arrange
+        var workspaceId = Guid.NewGuid();
+        var members = new List<WorkspaceMemberReadDto> {
+            new() { Id = Guid.NewGuid(), WorkspaceId = workspaceId },
+            new() { Id = Guid.NewGuid(), WorkspaceId = workspaceId }
+        };
+
+        _workspaceServiceMock
+            .Setup(x => x.GetWorkspaceMembersAsync(workspaceId, _userId, _userAccess))
+            .ReturnsAsync(members);
+
+        // Act
+        var result = await _controller.GetWorkspaceMembers(workspaceId);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal(members, okResult.Value);
+    }
+
+    [Fact]
+    public async Task UpdateMemberAccess_ValidUpdate_ReturnsOkResult() {
+        // Arrange
+        var memberId = Guid.NewGuid();
+        var updateDto = new WorkspaceMemberUpdateDto { Role = AccessLevel.Admin };
+        var updatedMember = new WorkspaceMemberReadDto {
+            Id = memberId,
+            AccessLevel = updateDto.Role
+        };
+
+        _workspaceServiceMock.Setup(x =>
+                x.UpdateMemberAccessAsync(memberId, updateDto, _userId, _userAccess))
+            .ReturnsAsync(updatedMember);
+
+        // Act
+        var result = await _controller.UpdateMemberAccess(memberId, updateDto);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal(updatedMember, okResult.Value);
     }
 }

@@ -1,8 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\Zello.Domain\Zello.Domain.csproj" />
+    <ProjectReference Include="..\Zello.Infrastructure\Zello.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Isopoh.Cryptography.Argon2" Version="2.0.0" />
     <PackageReference Include="AutoMapper" Version="13.0.1" />
     <PackageReference Include="AutoMapper.Collection" Version="10.0.0" />
     <PackageReference Include="FluentValidation" Version="11.10.0" />
@@ -14,9 +16,6 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0-rc.2.24473.5" />
     <PackageReference Remove="Meziantou.Analyzer" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Interfaces\Services\" />
   </ItemGroup>
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>

@@ -2,9 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi.Writers;
 using Swashbuckle.AspNetCore.Swagger;
-using System;
-using System.IO;
-using Zello.Infrastructure.Interfaces;
+using Zello.Domain.Abstractions;
 
 namespace Zello.Infrastructure.Services;
 

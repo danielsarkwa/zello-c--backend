@@ -1,10 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
 using Zello.Application.Dtos;
+using Zello.Application.ServiceInterfaces;
 using Zello.Domain.Entities;
 using Zello.Domain.Entities.Api.User;
-using Zello.Infrastructure.Data;
 using Zello.Infrastructure.Helpers;
 
 namespace Zello.Api.Controllers;
@@ -15,14 +14,23 @@ namespace Zello.Api.Controllers;
 [ApiController]
 [Route("api/v1/[controller]")]
 public sealed class ListController : ControllerBase {
-    private readonly ApplicationDbContext _context;
+    private readonly ITaskListService _taskListService;
+    private readonly IUserService _userService;
+    private readonly IProjectService _projectService;
+    private readonly IAuthorizationService _authorizationService;
 
     /// <summary>
     /// Initializes a new instance of the ListController
     /// </summary>
-    /// <param name="context">The application database context</param>
-    public ListController(ApplicationDbContext context) {
-        _context = context;
+    /// <param name="taskListService">The task service</param>
+    /// <param name="userService">The user service</param>
+    /// <param name="projectService">The project service</param>
+    /// <param name="authorizationService">The authorization service</param>
+    public ListController(ITaskListService taskListService, IUserService userService, IProjectService projectService, IAuthorizationService authorizationService) {
+        _taskListService = taskListService;
+        _userService = userService;
+        _projectService = projectService;
+        _authorizationService = authorizationService;
     }
 
     /// <summary>
@@ -43,24 +51,20 @@ public sealed class ListController : ControllerBase {
         if (userId == null)
             return BadRequest("User ID missing");
 
-        var list = await _context.Lists
-            .Include(l => l.Project)
-            .ThenInclude(p => p.Members)
-            .ThenInclude(pm => pm.WorkspaceMember)
-            .FirstOrDefaultAsync(l => l.Id == listId);
+        var list = await _taskListService.GetByIdAsync(listId);
 
         if (list == null)
             return NotFound($"List with ID {listId} not found");
 
-        bool hasAccess = userAccess == AccessLevel.Admin ||
-                         list.Project.Members.Any(pm =>
-                             pm.WorkspaceMember.UserId == userId
-                         );
+        // Verify user's access to the project
+        bool hasAccess = await _authorizationService
+            .AuthorizeProjectAccessAsync(userId.Value, list.ProjectId, AccessLevel.Member);
 
-        if (!hasAccess)
+        if (!hasAccess) {
             return Forbid("User is not a member of this project");
+        }
 
-        return Ok(ListReadDto.FromEntity(list));
+        return Ok(list);
     }
 
     /// <summary>
@@ -79,34 +83,36 @@ public sealed class ListController : ControllerBase {
         if (userId == null)
             return BadRequest("User ID missing");
 
-        // Start with a query that includes project membership data
-        var query = _context.Lists
-            .Include(l => l.Project)
-            .ThenInclude(p => p.Members)
-            .ThenInclude(pm => pm.WorkspaceMember)
-            .Include(l => l.Tasks)
-            .ThenInclude(t => t.Assignees)
-            .Include(l => l.Tasks)
-            .ThenInclude(t => t.Comments)
-            .AsQueryable();
+        var lists = await _taskListService.GetAllAsync(projectId);
 
-        // Filter by project if specified
-        if (projectId.HasValue)
-            query = query.Where(l => l.ProjectId == projectId.Value);
+        // Check if user has access to the project
+        if (projectId.HasValue) {
+            var project = await _projectService.GetProjectByIdAsync(projectId.Value);
 
-        // Filter to only show lists from projects where user is a member or is admin
-        query = query.Where(l =>
-            userAccess == AccessLevel.Admin ||
-            l.Project.Members.Any(pm =>
-                pm.WorkspaceMember.UserId == userId
-            )
-        );
+            if (project == null) {
+                return NotFound($"Project with ID {projectId} not found");
+            }
 
-        var lists = await query
-            .OrderBy(l => l.Position)
-            .ToListAsync();
+            // Verify user's access to the project
+            bool hasAccess = await _authorizationService
+                .AuthorizeProjectAccessAsync(userId.Value, projectId.Value, AccessLevel.Member);
 
-        return Ok(lists.Select(ListReadDto.FromEntity).ToList());
+            if (!hasAccess) {
+                return Forbid("User is not a member of this project");
+            }
+
+            // Filter by project if specified
+            lists = lists.Where(l => l.ProjectId == projectId.Value);
+
+            // order by position
+            lists = lists.OrderBy(l => l.Position);
+
+            // Filter to only show lists from projects where user is a member or is admin
+            lists = lists.Where(l => userAccess == AccessLevel.Admin ||
+                                     project.Members.Any(pm => pm.WorkspaceMember != null && pm.WorkspaceMember.UserId == userId.Value));
+        }
+
+        return Ok(lists);
     }
 
     /// <summary>
@@ -133,31 +139,11 @@ public sealed class ListController : ControllerBase {
         if (userId == null)
             return BadRequest("User ID missing");
 
-        var existingList = await _context.Lists
-            .Include(l => l.Project)
-            .ThenInclude(p => p.Members)
-            .ThenInclude(pm => pm.WorkspaceMember)
-            .FirstOrDefaultAsync(l => l.Id == listId);
-
-        if (existingList == null)
+        var list = await _taskListService.UpdateAsync(listId, updateList);
+        if (list == null)
             return NotFound($"List with ID {listId} not found");
 
-        var projectMember = existingList.Project.Members
-            .FirstOrDefault(pm => pm.WorkspaceMember.UserId == userId);
-
-        // First check if user has access to the project
-        bool hasAccess = userAccess == AccessLevel.Admin ||
-                         (projectMember != null && projectMember.AccessLevel >= AccessLevel.Member);
-
-        if (!hasAccess)
-            return Forbid("Insufficient permissions to update lists");
-
-        // Ensure the list ID from the URL is used
-        updateList.Id = listId;
-        updateList.ToEntity(existingList);
-        await _context.SaveChangesAsync();
-
-        return Ok(ListReadDto.FromEntity(existingList));
+        return Ok(list);
     }
 
     /// <summary>
@@ -177,70 +163,37 @@ public sealed class ListController : ControllerBase {
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> UpdateListPosition(Guid listId,
-        [FromBody] ListUpdateDto updateList) {
+    public async Task<IActionResult> UpdateListPosition(
+    Guid listId,
+    [FromBody] ListUpdateDto updateList) {
         var userId = ClaimsHelper.GetUserId(User);
-        var userAccess = ClaimsHelper.GetUserAccessLevel(User);
         if (userId == null)
             return BadRequest("User ID missing");
 
-        var list = await _context.Lists
-            .Include(l => l.Project)
-            .ThenInclude(p => p.Members)
-            .ThenInclude(pm => pm.WorkspaceMember)
-            .FirstOrDefaultAsync(l => l.Id == listId);
+        // First, check if user has access to the project
+        var list = await _taskListService.GetByIdAsync(listId);
 
         if (list == null)
             return NotFound($"List with ID {listId} not found");
 
-        var projectMember = list.Project.Members
-            .FirstOrDefault(pm => pm.WorkspaceMember.UserId == userId);
-
-        // Check if user has sufficient access
-        bool hasAccess = userAccess == AccessLevel.Admin ||
-                         (projectMember != null && projectMember.AccessLevel >= AccessLevel.Member);
+        // Verify user's access to the project
+        bool hasAccess = await _authorizationService
+            .AuthorizeProjectAccessAsync(userId.Value, list.ProjectId, AccessLevel.Member);
 
         if (!hasAccess)
-            return Forbid("Insufficient permissions to update list positions");
-
-        var projectLists = await _context.Lists
-            .Where(l => l.ProjectId == list.ProjectId)
-            .OrderBy(l => l.Position)
-            .ToListAsync();
-
-        if (updateList.Position < 0 || updateList.Position >= projectLists.Count)
-            return BadRequest("Invalid position");
+            throw new UnauthorizedAccessException("Insufficient permissions to update list position");
 
         try {
-            var oldPosition = list.Position;
-            if (updateList.Position < oldPosition) {
-                var listsToUpdate = await _context.Lists
-                    .Where(l => l.ProjectId == list.ProjectId &&
-                                l.Position >= updateList.Position &&
-                                l.Position < oldPosition)
-                    .ToListAsync();
+            var updatedList = await _taskListService.UpdatePositionAsync(
+                listId,
+                updateList.Position
+            );
 
-                foreach (var l in listsToUpdate) {
-                    l.Position++;
-                }
-            } else if (updateList.Position > oldPosition) {
-                var listsToUpdate = await _context.Lists
-                    .Where(l => l.ProjectId == list.ProjectId &&
-                                l.Position > oldPosition &&
-                                l.Position <= updateList.Position)
-                    .ToListAsync();
-
-                foreach (var l in listsToUpdate) {
-                    l.Position--;
-                }
-            }
-
-            list.Position = updateList.Position;
-            await _context.SaveChangesAsync();
-
-            return Ok(ListReadDto.FromEntity(list));
-        } catch (Exception) {
-            return StatusCode(500, "An error occurred while updating the list position");
+            return updatedList == null
+                ? NotFound($"List with ID {listId} not found")
+                : Ok(updatedList);
+        } catch (ArgumentException ex) {
+            return BadRequest(ex.Message);
         }
     }
 
@@ -272,41 +225,25 @@ public sealed class ListController : ControllerBase {
             return BadRequest("User ID missing");
 
         try {
-            var list = await _context.Lists
-                .Include(l => l.Project)
-                .ThenInclude(p => p.Members)
-                .ThenInclude(pm => pm.WorkspaceMember)
-                .FirstOrDefaultAsync(l => l.Id == listId);
+            var task = await _taskListService.CreateTaskAsync(listId, createTask, userId.Value);
+            if (task == null)
+                return NotFound($"List with ID {listId} not found");
 
+            var list = await _taskListService.GetListTasksAsync(listId);
             if (list == null)
                 return NotFound($"List with ID {listId} not found");
 
+            var projectId = list.FirstOrDefault()?.ProjectId;
+
             // Check project membership instead of workspace membership
-            bool hasAccess = userAccess == AccessLevel.Admin ||
-                             list.Project.Members.Any(pm =>
-                                 pm.WorkspaceMember.UserId == userId
-                             );
+            bool hasAccess = await _authorizationService.AuthorizeProjectMembershipAsync(userId.Value, projectId!.Value);
 
             if (!hasAccess)
                 return Forbid("User is not a member of this project");
 
-            // Set both ListId and ProjectId
-            createTask.ListId = listId;
-            createTask.ProjectId = list.ProjectId;
-
-            var task = createTask.ToEntity();
-            await _context.Tasks.AddAsync(task);
-            await _context.SaveChangesAsync();
-
-            var taskDto = TaskReadDto.FromEntity(task);
-
-            return CreatedAtAction(
-                nameof(GetListById),
-                new { listId },
-                taskDto
-            );
-        } catch (Exception) {
-            return StatusCode(500, "An error occurred while creating the task");
+            return CreatedAtAction(nameof(GetListById), new { listId }, task);
+        } catch (UnauthorizedAccessException) {
+            return Forbid();
         }
     }
 
@@ -331,31 +268,19 @@ public sealed class ListController : ControllerBase {
             return BadRequest("User ID missing");
 
         try {
-            var list = await _context.Lists
-                .Include(l => l.Project)
-                .ThenInclude(p => p.Members)
-                .ThenInclude(pm => pm.WorkspaceMember)
-                .FirstOrDefaultAsync(l => l.Id == listId);
+            var tasks = await _taskListService.GetListTasksAsync(listId);
 
-            if (list == null)
+            if (tasks == null)
                 return NotFound($"List with ID {listId} not found");
 
-            bool hasAccess = userAccess == AccessLevel.Admin ||
-                             list.Project.Members.Any(pm =>
-                                 pm.WorkspaceMember.UserId == userId
-                             );
+            var projectId = tasks.FirstOrDefault()?.ProjectId;
+
+            bool hasAccess = await _authorizationService.AuthorizeProjectMembershipAsync(userId.Value, projectId!.Value);
 
             if (!hasAccess)
                 return Forbid("User is not a member of this project");
 
-            var tasks = await _context.Tasks
-                .Where(t => t.ListId == listId)
-                .Include(t => t.Assignees)
-                .Include(t => t.Comments)
-                .OrderBy(t => t.CreatedDate)
-                .ToListAsync();
-
-            return Ok(tasks.Select(TaskReadDto.FromEntity).ToList());
+            return Ok(tasks);
         } catch (Exception) {
             return StatusCode(500, "An error occurred while retrieving tasks");
         }

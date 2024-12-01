@@ -1,16 +1,30 @@
 using System.ComponentModel.DataAnnotations;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using Zello.Application.Dtos;
 using Zello.Domain.Entities;
 
 namespace Zello.Application.Dtos;
 
 public class ListReadDto {
+    [JsonProperty("id")]
     public Guid Id { get; set; }
+
+    [JsonProperty("project_id")]
     public Guid ProjectId { get; set; }
+
+    [JsonProperty("name")]
     public string Name { get; set; } = string.Empty;
+
+    [JsonProperty("position")]
     public int Position { get; set; }
+
+    [JsonProperty("created_date")]
+    [JsonConverter(typeof(IsoDateTimeConverter))]
     public DateTime CreatedDate { get; set; }
+
+    [JsonProperty("tasks")]
+    public IEnumerable<TaskReadDto> Tasks { get; set; } = new List<TaskReadDto>();
 
     public static ListReadDto FromEntity(TaskList list) {
         return new ListReadDto {
@@ -19,42 +33,24 @@ public class ListReadDto {
             Name = list.Name,
             Position = list.Position,
             CreatedDate = list.CreatedDate,
+            Tasks = list.Tasks.Select(TaskReadDto.FromEntity).ToList()
         };
     }
 }
 
 public class ListCreateDto {
     [Required]
-    [RegularExpression(@"^[{(]?[0-9A-Fa-f]{8}[-]?[0-9A-Fa-f]{4}[-]?[0-9A-Fa-f]{4}[-]?[0-9A-Fa-f]{4}[-]?[0-9A-Fa-f]{12}[)}]?$", ErrorMessage = "Invalid GUID format.")]
-    [JsonProperty("projectId")]
-    public Guid ProjectId { get; set; }
-
-    [Required]
-    [StringLength(20, MinimumLength = 3)]
+    [StringLength(100, MinimumLength = 3)]
     [JsonProperty("name")]
     public required string Name { get; set; }
 
-    [Required]
-    [Range(0, int.MaxValue, ErrorMessage = "Position must be a non-negative value.")]
-    [JsonProperty("position")]
-    public int Position { get; set; }
-
-    public TaskList ToEntity() {
-        return new TaskList {
-            Id = Guid.NewGuid(),
-            ProjectId = ProjectId,
-            Name = Name,
-            Position = Position,
-            CreatedDate = DateTime.UtcNow,
-        };
-    }
+    [JsonProperty("tasks")]
+    public ICollection<TaskCreateDto>? Tasks { get; set; }
 }
 
 public class ListUpdateDto {
-    public Guid Id { get; set; }  // Add this to support ID assignment
-
     [StringLength(20, MinimumLength = 3)]
-    [JsonProperty("name")]  // Make lowercase to match convention
+    [JsonProperty("Name")]
     public string? Name { get; set; }
 
     [Range(0, int.MaxValue, ErrorMessage = "Position must be a non-negative value.")]

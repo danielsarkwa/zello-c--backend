@@ -1,172 +1,172 @@
-﻿name: Build, Check Style and Deploy
+﻿# name: Build, Check Style and Deploy
 
-env:
-  AZURE_WEBAPP_NAME: Zello123
-  AZURE_WEBAPP_PACKAGE_PATH: '.'
-  NEON_DB_PASSWORD: ${{ secrets.NEON_DB_PASSWORD }}
+# env:
+#   AZURE_WEBAPP_NAME: Zello123
+#   AZURE_WEBAPP_PACKAGE_PATH: '.'
+#   NEON_DB_PASSWORD: ${{ secrets.NEON_DB_PASSWORD }}
 
-on:
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - 'Documentation/**'
-  pull_request:
-    branches: [ main ]
-    paths-ignore:
-      - 'Documentation/**'
-  workflow_dispatch:
+# on:
+#   push:
+#     branches: [ main ]
+#     paths-ignore:
+#       - 'Documentation/**'
+#   pull_request:
+#     branches: [ main ]
+#     paths-ignore:
+#       - 'Documentation/**'
+#   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+# permissions:
+#   contents: read
+#   pages: write
+#   id-token: write
 
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '8.0.x'
-      - name: Restore dependencies
-        run: dotnet restore
-      - name: Build source projects
-        run: |
-          dotnet build src/Zello.Domain/Zello.Domain.csproj --no-restore /warnaserror
-          dotnet build src/Zello.Application/Zello.Application.csproj --no-restore /warnaserror
-          dotnet build src/Zello.Infrastructure/Zello.Infrastructure.csproj --no-restore /warnaserror
-          dotnet build src/Zello.Api/Zello.Api.csproj --no-restore /warnaserror
+# jobs:
+#   analyze:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - name: Setup .NET
+#         uses: actions/setup-dotnet@v3
+#         with:
+#           dotnet-version: '8.0.x'
+#       - name: Restore dependencies
+#         run: dotnet restore
+#       - name: Build source projects
+#         run: |
+#           dotnet build src/Zello.Domain/Zello.Domain.csproj --no-restore /warnaserror
+#           dotnet build src/Zello.Application/Zello.Application.csproj --no-restore /warnaserror
+#           dotnet build src/Zello.Infrastructure/Zello.Infrastructure.csproj --no-restore /warnaserror
+#           dotnet build src/Zello.Api/Zello.Api.csproj --no-restore /warnaserror
 
-  style-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '8.0.x'
-      - name: Install dotnet-format
-        run: dotnet tool install -g dotnet-format
-      - name: Create .editorconfig
-        run: |
-          cat > .editorconfig << 'EOL'
-          root = true
+#   style-check:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - name: Setup .NET
+#         uses: actions/setup-dotnet@v3
+#         with:
+#           dotnet-version: '8.0.x'
+#       - name: Install dotnet-format
+#         run: dotnet tool install -g dotnet-format
+#       - name: Create .editorconfig
+#         run: |
+#           cat > .editorconfig << 'EOL'
+#           root = true
 
-          [*.{cs,vb}]
-          indent_style = space
-          indent_size = 4
-          end_of_line = lf
-          insert_final_newline = true
-          trim_trailing_whitespace = true
+#           [*.{cs,vb}]
+#           indent_style = space
+#           indent_size = 4
+#           end_of_line = lf
+#           insert_final_newline = true
+#           trim_trailing_whitespace = true
 
-          # Go-like brace style
-          csharp_new_line_before_open_brace = none
-          csharp_new_line_before_else = false
-          csharp_new_line_before_catch = false
-          csharp_new_line_before_finally = false
-          csharp_new_line_before_members_in_object_initializers = false
-          csharp_new_line_before_members_in_anonymous_types = false
-          csharp_new_line_between_query_expression_clauses = false
+#           # Go-like brace style
+#           csharp_new_line_before_open_brace = none
+#           csharp_new_line_before_else = false
+#           csharp_new_line_before_catch = false
+#           csharp_new_line_before_finally = false
+#           csharp_new_line_before_members_in_object_initializers = false
+#           csharp_new_line_before_members_in_anonymous_types = false
+#           csharp_new_line_between_query_expression_clauses = false
 
-          # Indentation
-          csharp_indent_case_contents = true
-          csharp_indent_switch_labels = true
-          csharp_indent_labels = flush_left
+#           # Indentation
+#           csharp_indent_case_contents = true
+#           csharp_indent_switch_labels = true
+#           csharp_indent_labels = flush_left
 
-          # Spacing (Go-like)
-          csharp_space_after_cast = false
-          csharp_space_after_keywords_in_control_flow_statements = true
-          csharp_space_between_method_declaration_parameter_list_parentheses = false
-          csharp_space_between_method_call_parameter_list_parentheses = false
-          csharp_space_between_parentheses = false
-          csharp_space_before_colon_in_inheritance_clause = true
-          csharp_space_after_colon_in_inheritance_clause = true
-          csharp_space_around_binary_operators = before_and_after
+#           # Spacing (Go-like)
+#           csharp_space_after_cast = false
+#           csharp_space_after_keywords_in_control_flow_statements = true
+#           csharp_space_between_method_declaration_parameter_list_parentheses = false
+#           csharp_space_between_method_call_parameter_list_parentheses = false
+#           csharp_space_between_parentheses = false
+#           csharp_space_before_colon_in_inheritance_clause = true
+#           csharp_space_after_colon_in_inheritance_clause = true
+#           csharp_space_around_binary_operators = before_and_after
 
-          # Go-like formatting preferences
-          csharp_preserve_single_line_statements = true
-          csharp_preserve_single_line_blocks = true
-          max_line_length = 100
-          EOL
-      - name: Restore dependencies
-        run: dotnet restore
-      - name: Check code format
-        run: |
-          if ! dotnet format --verify-no-changes; then
-            echo "Code formatting issues found. Running format check in detail..."
-            dotnet format --verify-no-changes
-            exit 1
-          fi
+#           # Go-like formatting preferences
+#           csharp_preserve_single_line_statements = true
+#           csharp_preserve_single_line_blocks = true
+#           max_line_length = 100
+#           EOL
+#       - name: Restore dependencies
+#         run: dotnet restore
+#       - name: Check code format
+#         run: |
+#           if ! dotnet format --verify-no-changes; then
+#             echo "Code formatting issues found. Running format check in detail..."
+#             dotnet format --verify-no-changes
+#             exit 1
+#           fi
 
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '8.0.x'
-      - name: Restore dependencies
-        run: dotnet restore
-      - name: Run tests
-        run: dotnet test --no-restore --verbosity normal
+#   test:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - name: Setup .NET
+#         uses: actions/setup-dotnet@v3
+#         with:
+#           dotnet-version: '8.0.x'
+#       - name: Restore dependencies
+#         run: dotnet restore
+#       - name: Run tests
+#         run: dotnet test --no-restore --verbosity normal
 
-  build-docs:
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ERD-Diagram'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout your repository using git
-        uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22.11.0'
-      - name: Install Playwright browsers
-        run: |
-          cd Documentation
-          npm install -D @playwright/test
-          npx playwright install chromium
-      - name: Install, build, and upload your site
-        uses: withastro/action@v3
-        with:
-          path: ./Documentation
+#   build-docs:
+#     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ERD-Diagram'
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout your repository using git
+#         uses: actions/checkout@v4
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: '22.11.0'
+#       - name: Install Playwright browsers
+#         run: |
+#           cd Documentation
+#           npm install -D @playwright/test
+#           npx playwright install chromium
+#       - name: Install, build, and upload your site
+#         uses: withastro/action@v3
+#         with:
+#           path: ./Documentation
 
-  deploy-docs:
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ERD-Diagram'
-    needs: build-docs
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+#   deploy-docs:
+#     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ERD-Diagram'
+#     needs: build-docs
+#     runs-on: ubuntu-latest
+#     environment:
+#       name: github-pages
+#       url: ${{ steps.deployment.outputs.page_url }}
+#     steps:
+#       - name: Deploy to GitHub Pages
+#         id: deployment
+#         uses: actions/deploy-pages@v4
 
-  build-and-deploy:
-    if: always()
-    needs: [ analyze, style-check, test ]
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '8.0.x'
-      - name: Restore dependencies
-        run: dotnet restore
-      - name: Build and publish
-        run: |
-          dotnet build src/Zello.Api/Zello.Api.csproj --configuration Release --no-restore
-          dotnet publish src/Zello.Api/Zello.Api.csproj -c Release -o ${{env.AZURE_WEBAPP_PACKAGE_PATH}}/myapp
-      - name: Deploy to Azure Web Apps
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: ${{env.AZURE_WEBAPP_PACKAGE_PATH}}/myapp
+#   build-and-deploy:
+#     if: always()
+#     needs: [ analyze, style-check, test ]
+#     runs-on: ubuntu-latest
+#     environment:
+#       name: production
+#       url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
+#     steps:
+#       - uses: actions/checkout@v4
+#       - name: Setup .NET
+#         uses: actions/setup-dotnet@v3
+#         with:
+#           dotnet-version: '8.0.x'
+#       - name: Restore dependencies
+#         run: dotnet restore
+#       - name: Build and publish
+#         run: |
+#           dotnet build src/Zello.Api/Zello.Api.csproj --configuration Release --no-restore
+#           dotnet publish src/Zello.Api/Zello.Api.csproj -c Release -o ${{env.AZURE_WEBAPP_PACKAGE_PATH}}/myapp
+#       - name: Deploy to Azure Web Apps
+#         uses: azure/webapps-deploy@v3
+#         with:
+#           app-name: ${{ env.AZURE_WEBAPP_NAME }}
+#           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+#           package: ${{env.AZURE_WEBAPP_PACKAGE_PATH}}/myapp

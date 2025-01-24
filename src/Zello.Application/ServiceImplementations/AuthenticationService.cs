@@ -35,13 +35,11 @@ public class AuthenticationService : IAuthenticationService {
 
         var isValid = _passwordHasher.VerifyPassword(request.Password, user.PasswordHash);
         var hashTime = sw.ElapsedMilliseconds - dbTime;
-        Console.WriteLine($"Password Verification Time: {hashTime}ms");
 
         if (!isValid) return null;
 
         var token = _tokenService.GenerateToken(user);
         var jwtTime = sw.ElapsedMilliseconds - hashTime - dbTime;
-        Console.WriteLine($"JWT Generation Time: {jwtTime}ms");
 
         return new LoginResponse {
             Token = token,
@@ -52,6 +50,27 @@ public class AuthenticationService : IAuthenticationService {
             Description = GetAccessLevelDescription(user.AccessLevel)
         };
     }
+
+    public async Task<LoginResponse> ExtendSessionAsync(Guid userId) {
+        var user = await _context.Set<User>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null)
+            throw new KeyNotFoundException($"User with ID {userId} not found");
+
+        var token = _tokenService.GenerateToken(user);
+
+        return new LoginResponse {
+            Token = token,
+            Expires = DateTime.UtcNow.AddHours(1),
+            TokenType = "Bearer",
+            AccessLevel = user.AccessLevel.ToString(),
+            NumericLevel = (int)user.AccessLevel,
+            Description = GetAccessLevelDescription(user.AccessLevel)
+        };
+    }
+
 
     private static string GetAccessLevelDescription(AccessLevel level) => level switch {
         AccessLevel.Guest => "Basic access with limited privileges",

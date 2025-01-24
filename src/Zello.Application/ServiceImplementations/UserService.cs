@@ -41,7 +41,7 @@ public class UserService : IUserService {
             Username = registerDto.Username,
             Email = registerDto.Email,
             Name = registerDto.Name,
-            AccessLevel = AccessLevel.Guest,
+            AccessLevel = AccessLevel.Member,
             PasswordHash = hashedPassword,
             CreatedDate = DateTime.UtcNow
         };

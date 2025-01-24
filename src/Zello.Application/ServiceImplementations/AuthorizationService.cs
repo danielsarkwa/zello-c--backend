@@ -52,8 +52,9 @@ namespace Zello.Application.ServiceImplementations {
             if (workspace == null)
                 return false;
 
-            var workspaceMember = workspace.Members
-                .FirstOrDefault(m => m.UserId == userId);
+            var members = workspace.Members.ToList();
+
+            var workspaceMember = members.FirstOrDefault(m => m.UserId == userId);
 
             return workspaceMember != null;
         }

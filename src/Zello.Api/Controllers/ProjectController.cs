@@ -59,7 +59,10 @@ public sealed class ProjectController : ControllerBase {
             var hasAccess = await _authorizationService.AuthorizeWorkspaceMembershipAsync(
                 projectDto.WorkspaceId, userId.Value);
 
-            if (!hasAccess) return Forbid("User is not a member of the workspace");
+            if (!hasAccess)
+                return new ObjectResult(new { Message = "User is not a member of the workspace" }) {
+                    StatusCode = StatusCodes.Status403Forbidden
+                };
 
             // check if the user has suffient permissions to create a project
             var hasPermission = await _authorizationService.AuthorizeProjectAccessAsync(

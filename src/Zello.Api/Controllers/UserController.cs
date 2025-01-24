@@ -53,6 +53,30 @@ public class UserController : ControllerBase {
     }
 
     /// <summary>
+    /// Extends the current valid JWT token session
+    /// </summary>
+    /// <remarks>
+    /// This endpoint allows refreshing a still-valid token to maintain an active session.
+    /// The current token must be valid and included in the Authorization header.
+    /// </remarks>
+    /// <response code="200">Returns new access token</response>
+    /// <response code="401">Current token is invalid or expired</response>
+    [HttpPost("extend-session")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ExtendSession() {
+        var userId = ClaimsHelper.GetUserId(User);
+        if (userId == null) return BadRequest("User ID missing");
+
+        try {
+            var loginResponse = await _authService.ExtendSessionAsync(userId.Value);
+            return Ok(loginResponse);
+        } catch (KeyNotFoundException) {
+            return Unauthorized(new { Message = "User not found" });
+        }
+    }
+
+    /// <summary>
     /// Retrieves the current authenticated user's information
     /// </summary>
     /// <remarks>

@@ -24,29 +24,27 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddUserSecrets<Program>();
 
-var password = builder.Configuration["NEON_DB_PASSWORD"];
-Console.WriteLine($"Password length: {password?.Length ?? 0}");
-
-// Manually construct connection string
-var manualConnectionString = new NpgsqlConnectionStringBuilder {
-    Host = "ep-shy-silence-a2w59vfl.eu-central-1.aws.neon.tech",
-    Database = "ZelloDB",
-    Username = "ZelloDB_owner",
-    Password = password,
-    SslMode = SslMode.Require,
-}.ToString();
-
-Console.WriteLine($"Manual connection string: {manualConnectionString}");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 // Database Context
 builder.Services.AddDbContext<ApplicationDbContext>(options => {
-    options.UseNpgsql(manualConnectionString,
+    options.UseNpgsql(connectionString,
         npgsqlOptions => {
             npgsqlOptions.EnableRetryOnFailure(
                 maxRetryCount: 3,
                 maxRetryDelay: TimeSpan.FromSeconds(30),
                 errorCodesToAdd: null);
         });
+});
+
+builder.Services.AddCors(options => {
+    options.AddDefaultPolicy(policy => {
+        policy.WithOrigins("http://localhost:3000",
+                "http://localhost:3001",
+                "http://localhost:8080")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
 });
 
 // Register DbContext as DbContext for generic access
@@ -256,7 +254,7 @@ if (app.Environment.IsDevelopment()) {
     }
 }
 
-
+app.UseCors();
 // Configure the HTTP request pipeline
 app.UseHttpsRedirection(); // Redirect HTTP to HTTPS
 app.UseAuthentication(); // Enable authentication

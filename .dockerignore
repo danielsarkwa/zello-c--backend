@@ -1,0 +1,10 @@
+**/bin
+**/obj
+.idea
+.git
+.github
+Documentation/
+*.user
+*.vs
+*.log
+*.txt

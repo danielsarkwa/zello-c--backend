@@ -7,6 +7,6 @@ public interface ITaskListService {
     Task<IEnumerable<ListReadDto>> GetAllAsync(Guid? projectId);
     Task<ListReadDto> UpdateAsync(Guid id, ListUpdateDto updateDto);
     Task<ListReadDto?> UpdatePositionAsync(Guid id, int newPosition);
-    Task<TaskReadDto?> CreateTaskAsync(Guid listId, TaskCreateDto createDto, Guid userId);
+    Task<TaskReadDto?> CreateTaskAsync(TaskCreateDto createDto, Guid userId);
     Task<IEnumerable<TaskReadDto>?> GetListTasksAsync(Guid listId);
 }

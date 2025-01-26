@@ -13,14 +13,23 @@ public class TaskListService : ITaskListService {
     }
 
     public async Task<ListReadDto?> GetByIdAsync(Guid id) {
-        var list = await _taskListRepository.GetByIdAsync(id);
+        var list = await _taskListRepository.GetByIdWithRelationsAsync(id);
         if (list == null) return null;
 
         return new ListReadDto {
             Id = list.Id,
             Name = list.Name,
             ProjectId = list.ProjectId,
-            Position = list.Position
+            Position = list.Position,
+            Tasks = list.Tasks.Select(t => new TaskReadDto {
+                Id = t.Id,
+                Name = t.Name,
+                Description = t.Description,
+                Status = t.Status,
+                Priority = t.Priority,
+                Deadline = t.Deadline,
+                ListId = t.ListId
+            }).ToList()
         };
     }
 
@@ -63,15 +72,17 @@ public class TaskListService : ITaskListService {
         };
     }
 
-    public async Task<TaskReadDto?> CreateTaskAsync(Guid listId, TaskCreateDto createDto, Guid userId) {
-        var list = await _taskListRepository.GetByIdWithRelationsAsync(listId);
+    public async Task<TaskReadDto?> CreateTaskAsync(TaskCreateDto createDto, Guid userId) {
+        var list = await _taskListRepository.GetByIdWithRelationsAsync(createDto.ListId);
         if (list == null) return null;
 
         var task = new WorkTask {
             Id = Guid.NewGuid(),
-            ListId = listId,
+            ListId = createDto.ListId,
             ProjectId = list.ProjectId,
             CreatedDate = DateTime.UtcNow,
+            Status = createDto.Status,
+            Priority = createDto.Priority,
             Name = createDto.Name,
             Description = createDto.Description ?? "",
         };
@@ -83,6 +94,10 @@ public class TaskListService : ITaskListService {
             Description = task.Description,
             CreatedDate = task.CreatedDate,
             Deadline = task.Deadline,
+            Priority = task.Priority,
+            Status = task.Status,
+            ProjectId = task.ProjectId,
+            ListId = task.ListId,
             Assignees = task.Assignees.Select(a => new TaskAssigneeReadDto { UserId = a.UserId }).ToList(),
             Comments = task.Comments.Select(c => new CommentReadDto { Id = c.Id, Content = c.Content }).ToList()
         };

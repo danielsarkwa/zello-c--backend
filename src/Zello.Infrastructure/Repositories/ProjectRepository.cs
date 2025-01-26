@@ -11,11 +11,38 @@ public class ProjectRepository : BaseRepository<Project>, IProjectRepository {
 
     public async Task<Project?> GetProjectByIdWithDetailsAsync(Guid projectId) {
         return await _dbSet
-            .Include(p => p.Members)
-            .ThenInclude(m => m.WorkspaceMember)
-            .Include(p => p.Lists)
-            .AsNoTracking() // Get a clean copy without tracking
-            .FirstOrDefaultAsync(p => p.Id == projectId);
+            .Where(p => p.Id == projectId)
+            .Select(p => new Project {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                EndDate = p.EndDate,
+                StartDate = p.StartDate,
+                Status = p.Status,
+                WorkspaceId = p.WorkspaceId,
+                Members = p.Members,
+                CreatedDate = p.CreatedDate,
+                Lists = p.Lists.Select(l => new TaskList {
+                    Id = l.Id,
+                    Name = l.Name,
+                    Position = l.Position,
+                    CreatedDate = l.CreatedDate,
+                    ProjectId = l.ProjectId,
+                    Tasks = l.Tasks.Select(t => new WorkTask {
+                        Id = t.Id,
+                        ProjectId = t.ProjectId,
+                        ListId = t.ListId,
+                        Name = t.Name,
+                        Description = t.Description,
+                        Priority = t.Priority,
+                        Status = t.Status,
+                        Assignees = t.Assignees,
+                        CreatedDate = t.CreatedDate
+                    }).ToList()
+                }).ToList()
+            })
+            .AsNoTracking()
+            .FirstOrDefaultAsync();
     }
 
     public async Task<List<Project>> GetProjectsByWorkspaceAsync(Guid? workspaceId) {

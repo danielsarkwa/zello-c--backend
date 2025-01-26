@@ -13,10 +13,17 @@ public class TaskListRepository : BaseRepository<TaskList>, ITaskListRepository 
             .Include(l => l.Project)
             .ThenInclude(p => p.Workspace)
             .ThenInclude(w => w.Members)
+            .Include(l => l.Tasks)
             .FirstOrDefaultAsync(l => l.Id == id);
 
         if (taskList == null) {
             throw new InvalidOperationException($"TaskList with id {id} not found.");
+        }
+
+        Console.WriteLine($"TaskList retrieved: {taskList.Name}");
+        foreach (var task in taskList.Tasks)
+        {
+            Console.WriteLine($"Task: {task.Name}");
         }
 
         return taskList;

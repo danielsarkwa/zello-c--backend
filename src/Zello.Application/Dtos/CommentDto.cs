@@ -51,7 +51,7 @@ public class CommentReadDto {
     /// <summary>
     /// Detailed information about the comment author
     /// </summary>
-    public UserReadDto User { get; set; } = new UserReadDto();
+    public UserReadDto? User { get; set; } = new UserReadDto();
 
     public static CommentReadDto FromEntity(Comment comment) {
         return new CommentReadDto {
@@ -60,7 +60,7 @@ public class CommentReadDto {
             UserId = comment.UserId,
             Content = comment.Content,
             CreatedDate = comment.CreatedDate,
-            User = UserReadDto.FromEntity(comment.User)
+            User = comment.User != null ? UserReadDto.FromEntity(comment.User) : null
         };
     }
 }

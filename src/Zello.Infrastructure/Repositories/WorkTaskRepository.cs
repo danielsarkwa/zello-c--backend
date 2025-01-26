@@ -13,8 +13,37 @@ public class WorkTaskRepository : BaseRepository<WorkTask>, IWorkTaskRepository 
             .Include(t => t.Assignees)
             .ThenInclude(a => a.User)
             .Include(t => t.Comments)
-            .Include(t => t.List)
             .Include(t => t.Project)
+            .Select(t => new WorkTask {
+                Id = t.Id,
+                Name = t.Name,
+                Description = t.Description,
+                Deadline = t.Deadline,
+                Priority = t.Priority,
+                Status = t.Status,
+                Assignees = t.Assignees.Select(a => new TaskAssignee {
+                    Id = a.Id,
+                    UserId = a.UserId,
+                    TaskId = a.TaskId,
+                    AssignedDate = a.AssignedDate
+                }).ToList(),
+                Comments = t.Comments.Select(c => new Comment {
+                    Id = c.Id,
+                    Content = c.Content,
+                    CreatedDate = c.CreatedDate,
+                    UserId = c.UserId,
+                }).ToList(),
+                ListId = t.ListId,
+                ProjectId = t.ProjectId,
+                Project = new Project {
+                    Id = t.Project.Id,
+                    Name = t.Project.Name,
+                    WorkspaceId = t.Project.WorkspaceId,
+                    Status = t.Project.Status,
+                    CreatedDate = t.Project.CreatedDate
+                }
+            })
+            .AsNoTracking()
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) {

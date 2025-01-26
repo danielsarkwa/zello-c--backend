@@ -44,7 +44,7 @@ public class TaskAssigneeReadDto {
     /// <summary>
     /// Detailed information about the assigned user
     /// </summary>
-    public UserReadDto User { get; set; } = new UserReadDto();
+    public UserReadDto? User { get; set; } = new UserReadDto();
 
     public static TaskAssigneeReadDto FromEntity(TaskAssignee taskAssignee) {
         return new TaskAssigneeReadDto {
@@ -52,7 +52,7 @@ public class TaskAssigneeReadDto {
             TaskId = taskAssignee.TaskId,
             UserId = taskAssignee.UserId,
             AssignedDate = taskAssignee.AssignedDate,
-            User = UserReadDto.FromEntity(taskAssignee.User)
+            User = taskAssignee.User != null ? UserReadDto.FromEntity(taskAssignee.User) : null
         };
     }
 }

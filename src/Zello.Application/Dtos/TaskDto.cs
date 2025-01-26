@@ -91,7 +91,7 @@ public class TaskReadDto {
     /// Comments made on this task
     /// </summary>
     [JsonProperty("comments")]
-    public IEnumerable<CommentReadDto> Comments { get; set; } = new List<CommentReadDto>();
+    public IEnumerable<CommentReadDto>? Comments { get; set; } = new List<CommentReadDto>();
 
     /// <summary>
     /// List containing this task
@@ -116,35 +116,36 @@ public class TaskReadDto {
             Status = task.Status,
             Deadline = task.Deadline,
             CreatedDate = task.CreatedDate,
-            Assignees = task.Assignees.Select(a => new TaskAssigneeReadDto {
+            Assignees = task.Assignees?.Select(a => new TaskAssigneeReadDto {
                 Id = a.Id,
                 TaskId = a.TaskId,
                 UserId = a.UserId,
                 AssignedDate = a.AssignedDate
-            }).ToList(),
-            Comments = task.Comments.Select(c => new CommentReadDto {
+            }).ToList() ?? new List<TaskAssigneeReadDto>(),
+            Comments = task.Comments?.Select(c => new CommentReadDto {
                 Id = c.Id,
                 TaskId = c.TaskId,
                 UserId = c.UserId,
                 Content = c.Content,
                 CreatedDate = c.CreatedDate,
-            }).ToList(),
+            }).ToList() ?? new List<CommentReadDto>(),
             List = task.List != null
-                ? new ListReadDto {
-                    Id = task.List.Id,
-                    Name = task.List.Name,
-                    ProjectId = task.List.ProjectId,
-                    CreatedDate = task.List.CreatedDate
-                }
-                : null,
+            ? new ListReadDto {
+                Id = task.List.Id,
+                Name = task.List.Name,
+                ProjectId = task.List.ProjectId,
+                CreatedDate = task.List.CreatedDate
+            }
+            : null,
             Project = task.Project != null
-                ? new ProjectReadDto {
-                    Id = task.Project.Id,
-                    Name = task.Project.Name,
-                    WorkspaceId = task.Project.WorkspaceId,
-                    CreatedDate = task.Project.CreatedDate
-                }
-                : null
+            ? new ProjectReadDto {
+                Id = task.Project.Id,
+                Name = task.Project.Name,
+                WorkspaceId = task.Project.WorkspaceId,
+                Status = task.Project.Status,
+                CreatedDate = task.Project.CreatedDate
+            }
+            : null
         };
     }
 }
@@ -210,7 +211,6 @@ public class TaskCreateDto {
     /// ID of the project this task belongs to
     /// </summary>
     /// <example>123e4567-e89b-12d3-a456-426614174000</example>
-    [Required]
     [JsonProperty("project_id")]
     public Guid ProjectId { get; set; }
 

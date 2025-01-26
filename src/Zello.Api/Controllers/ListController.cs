@@ -200,7 +200,6 @@ public sealed class ListController : ControllerBase {
     /// <summary>
     /// Creates a new task in the specified list
     /// </summary>
-    /// <param name="listId">The unique identifier of the list to add the task to</param>
     /// <param name="createTask">The task data to create</param>
     /// <returns>The created task</returns>
     /// <response code="201">Task was successfully created</response>
@@ -214,7 +213,7 @@ public sealed class ListController : ControllerBase {
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> CreateTask(Guid listId, [FromBody] TaskCreateDto createTask) {
+    public async Task<IActionResult> CreateTask([FromBody] TaskCreateDto createTask) {
         if (!ModelState.IsValid) {
             return BadRequest(ModelState);
         }
@@ -225,13 +224,13 @@ public sealed class ListController : ControllerBase {
             return BadRequest("User ID missing");
 
         try {
-            var task = await _taskListService.CreateTaskAsync(listId, createTask, userId.Value);
+            var task = await _taskListService.CreateTaskAsync(createTask, userId.Value);
             if (task == null)
-                return NotFound($"List with ID {listId} not found");
+                return NotFound($"List with ID {createTask.ListId} not found");
 
-            var list = await _taskListService.GetListTasksAsync(listId);
+            var list = await _taskListService.GetListTasksAsync(createTask.ListId);
             if (list == null)
-                return NotFound($"List with ID {listId} not found");
+                return NotFound($"List with ID {createTask.ListId} not found");
 
             var projectId = list.FirstOrDefault()?.ProjectId;
 
@@ -241,7 +240,7 @@ public sealed class ListController : ControllerBase {
             if (!hasAccess)
                 return Forbid("User is not a member of this project");
 
-            return CreatedAtAction(nameof(GetListById), new { listId }, task);
+            return CreatedAtAction(nameof(GetListById), new { createTask.ListId }, task);
         } catch (UnauthorizedAccessException) {
             return Forbid();
         }

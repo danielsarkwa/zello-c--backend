@@ -288,15 +288,15 @@ public sealed class ProjectController : ControllerBase {
             var project = await _projectService.GetProjectByIdAsync(projectId);
 
             // Check if current user has access to manage members
-            var currentProjectMember = project.Members
-                .FirstOrDefault(pm => pm.WorkspaceMember != null &&
-                                      pm.WorkspaceMember.UserId == userId);
+            // var currentProjectMember = project.Members
+            //     .FirstOrDefault(pm => pm.WorkspaceMember != null &&
+            //                           pm.WorkspaceMember.UserId == userId);
 
-            bool hasAccess = userAccess == AccessLevel.Admin ||
-                             (currentProjectMember?.AccessLevel >= AccessLevel.Owner);
+            // bool hasAccess = userAccess == AccessLevel.Admin ||
+            //                  (currentProjectMember?.AccessLevel >= AccessLevel.Owner);
 
-            if (!hasAccess)
-                return Forbid("Insufficient permissions to update project");
+            // if (!hasAccess)
+            //     return Forbid("Insufficient permissions to update project");
 
             await _projectService.DeleteProjectAsync(projectId);
             return NoContent();

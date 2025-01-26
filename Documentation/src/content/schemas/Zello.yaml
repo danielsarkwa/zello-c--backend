@@ -574,11 +574,9 @@ paths:
       parameters:
         - name: listId
           in: path
-          description: The unique identifier of the list to add the task to
           required: true
           schema:
             type: string
-            format: uuid
       requestBody:
         description: The task data to create
         content:
@@ -3065,7 +3063,6 @@ components:
       required:
         - listId
         - name
-        - projectId
         - status
       type: object
       properties:

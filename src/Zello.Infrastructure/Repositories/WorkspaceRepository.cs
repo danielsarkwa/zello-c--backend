@@ -11,7 +11,7 @@ public class WorkspaceRepository : BaseRepository<Workspace>, IWorkspaceReposito
     public async Task<Workspace> GetWorkspaceWithDetailsAsync(Guid workspaceId) {
         var workspace = await _dbSet
             .Include(w => w.Members)
-            .Include(w => w.Projects)
+            .Include(w => w.Projects).ThenInclude(p => p.Lists).ThenInclude(l => l.Tasks)
             .FirstOrDefaultAsync(w => w.Id == workspaceId);
 
         if (workspace == null) {

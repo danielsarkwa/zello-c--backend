@@ -41,7 +41,8 @@ builder.Services.AddCors(options => {
     options.AddDefaultPolicy(policy => {
         policy.WithOrigins("https://zello-frontend.onrender.com")
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 

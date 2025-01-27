@@ -99,7 +99,7 @@ builder.Services.AddControllers()
 #region JWT Authentication Setup
 
 // Verify JWT Key availability
-var jwtKey = builder.Configuration["Jwt:Key"];
+var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY");
 Console.WriteLine($"JWT Key found: {!string.IsNullOrEmpty(jwtKey)}");
 
 // Configure JWT Authentication
@@ -110,10 +110,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ??
+                         builder.Configuration["Jwt:Issuer"],
+            ValidAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ??
+                          builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ??
+                Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWT_KEY") ??
+                    builder.Configuration["Jwt:Key"] ??
                                        throw new InvalidOperationException(
                                            "JWT Key not found in configuration")))
         };

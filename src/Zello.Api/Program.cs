@@ -39,9 +39,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options => {
 
 builder.Services.AddCors(options => {
     options.AddDefaultPolicy(policy => {
-        policy.WithOrigins("http://localhost:3000",
-                "http://localhost:3001",
-                "http://localhost:8080")
+        policy.WithOrigins("https://zello-frontend.onrender.com")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });

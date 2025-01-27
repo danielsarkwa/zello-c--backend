@@ -24,10 +24,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddUserSecrets<Program>();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
 // Database Context
 builder.Services.AddDbContext<ApplicationDbContext>(options => {
+     var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") ?? 
+                          builder.Configuration.GetConnectionString("DefaultConnection");
+
     options.UseNpgsql(connectionString,
         npgsqlOptions => {
             npgsqlOptions.EnableRetryOnFailure(

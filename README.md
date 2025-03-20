@@ -4,7 +4,8 @@ A task management system built with .NET 8 and PostgreSQL. Inspired by Trello, Z
 
 For additional documentation visit: [Zello Documentation](https://kelo221.github.io/fs19_CSharp_Teamwork/)
 
-Server has been deployed on https://zello123-b0bracfcbsgaa5gp.northeurope-01.azurewebsites.net
+Server has been deployed on https://zello-backend.onrender.com
+
 ## Features
 - User authentication and authorization with JWT
 - Workspaces for team organization
